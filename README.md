@@ -25,6 +25,8 @@
 │       ├──▶ provenance (cryptographic provenance)                │
 │       ├──▶ agent-wire   (policy dispatch gateway)               │
 │       ├──▶ agent-status (token burn monitor + budget enforcement)│
+│       ├──▶ bpc          (hardware-bound credential protocol)    │
+│       ├──▶ tsk          (rotating segment key protocol)         │
 │       └──▶ demo         (demo kit)                              │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -46,8 +48,9 @@
 | `log/` | [selfconnect-log](https://github.com/rblake2320/selfconnect-log) | Audit logging |
 | `provenance/` | [selfconnect-provenance](https://github.com/rblake2320/selfconnect-provenance) | Cryptographic provenance tracking |
 | `agent-wire/` | [agent-wire](https://github.com/rblake2320/agent-wire) | Policy-as-code dispatch gateway with deny-by-default, cryptographic ledger, and classification gating |
-| `agent-wire/` | [agent-wire](https://github.com/rblake2320/agent-wire) | Policy-as-code dispatch gateway with deny-by-default, cryptographic ledger, and classification gating |
 | `agent-status/` | [agent-status](https://github.com/rblake2320/agent-status) | Real-time token burn monitor — JSONL tailing, combined cross-session ceiling, USD limits, PreToolUse enforcement hook |
+| `bpc/` | [bpc-protocol](https://github.com/rblake2320/bpc-protocol) | Bound Pair Credentials — hardware-bound, pair-verified, replay-proof credential protocol used in enterprise/federal tiers |
+| `tsk/` | [tsk-protocol](https://github.com/rblake2320/tsk-protocol) | Tumbler-Style Rotating Segment Keys — structural key secrecy, used in federal/enterprise tiers |
 | `demo/` | [SelfConnect-Demo-kit-](https://github.com/rblake2320/SelfConnect-Demo-kit-) | Demo kit |
 
 ---

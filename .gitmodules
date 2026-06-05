@@ -37,3 +37,9 @@
 [submodule "agent-status"]
 	path = agent-status
 	url = https://github.com/rblake2320/agent-status
+[submodule "bpc"]
+	path = bpc
+	url = https://github.com/rblake2320/bpc-protocol
+[submodule "tsk"]
+	path = tsk
+	url = https://github.com/rblake2320/tsk-protocol

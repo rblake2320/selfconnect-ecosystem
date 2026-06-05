@@ -29,6 +29,9 @@ selfconnect-ecosystem/
 ├── log/            → selfconnect-log        (audit logging)
 ├── provenance/     → selfconnect-provenance (chain-of-custody)
 ├── agent-wire/     → agent-wire             (inter-agent dispatch gateway)
+├── agent-status/   → agent-status           (token burn monitor + budget enforcement)
+├── bpc/            → bpc-protocol           (hardware-bound credential protocol)
+├── tsk/            → tsk-protocol           (rotating segment key protocol)
 ├── demo/           → SelfConnect-Demo-kit-  (examples and demos)
 └── docs/                                    (cross-repo design documents)
 ```
@@ -144,7 +147,7 @@ git checkout main
 
 - **GUMBO** (`rblake2320/gumbo`) — Fusion orchestrator built on top of SelfConnect Enterprise + BPC + TSK
 - **PKA Team** (`rblake2320/pka-team`) — 15-agent workspace that uses SelfConnect for inter-agent communication
-- **agent-status** (`rblake2320/agent-status`) — Real-time agent health daemon, compatible with the mesh
+- **TSK Protocol** (`rblake2320/tsk-protocol`) — Tumbler-Style Rotating Segment Keys, used in federal/enterprise tiers for structural key secrecy (`tsk/` submodule)
 
 ---
 
