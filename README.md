@@ -23,8 +23,9 @@
 │       ├──▶ plugins    (extension layer)                         │
 │       ├──▶ log        (audit + logging)                         │
 │       ├──▶ provenance (cryptographic provenance)                │
-│       ├──▶ agent-wire (policy dispatch gateway)                 │
-│       └──▶ demo       (demo kit)                                │
+│       ├──▶ agent-wire   (policy dispatch gateway)               │
+│       ├──▶ agent-status (token burn monitor + budget enforcement)│
+│       └──▶ demo         (demo kit)                              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -45,6 +46,8 @@
 | `log/` | [selfconnect-log](https://github.com/rblake2320/selfconnect-log) | Audit logging |
 | `provenance/` | [selfconnect-provenance](https://github.com/rblake2320/selfconnect-provenance) | Cryptographic provenance tracking |
 | `agent-wire/` | [agent-wire](https://github.com/rblake2320/agent-wire) | Policy-as-code dispatch gateway with deny-by-default, cryptographic ledger, and classification gating |
+| `agent-wire/` | [agent-wire](https://github.com/rblake2320/agent-wire) | Policy-as-code dispatch gateway with deny-by-default, cryptographic ledger, and classification gating |
+| `agent-status/` | [agent-status](https://github.com/rblake2320/agent-status) | Real-time token burn monitor — JSONL tailing, combined cross-session ceiling, USD limits, PreToolUse enforcement hook |
 | `demo/` | [SelfConnect-Demo-kit-](https://github.com/rblake2320/SelfConnect-Demo-kit-) | Demo kit |
 
 ---

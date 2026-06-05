@@ -34,3 +34,6 @@
 [submodule "agent-wire"]
 	path = agent-wire
 	url = https://github.com/rblake2320/agent-wire
+[submodule "agent-status"]
+	path = agent-status
+	url = https://github.com/rblake2320/agent-status

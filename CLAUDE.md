@@ -21,6 +21,7 @@ This is the **meta/umbrella repository** for the entire SelfConnect project. It 
 | `log/` | Audit logging | Tracing agent actions |
 | `provenance/` | Cryptographic provenance tracking | Chain-of-custody for agent actions |
 | `agent-wire/` | Dispatch gateway — deny-by-default policy, hash-chained ledger | All inter-agent message routing |
+| `agent-status/` | Token burn daemon — JSONL tailing, USD limits, PreToolUse hook | Budget enforcement, combined cross-session ceiling, fleet monitoring |
 | `demo/` | Demo kit | Demos and examples |
 
 ## Critical Rules
