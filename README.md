@@ -141,6 +141,33 @@ See `docs/` for cross-repo design documents:
 
 ---
 
+## Repository Visibility
+
+All repositories in this ecosystem are **private**. Access is by invitation only.
+
+| Repo | Role |
+|------|------|
+| `selfconnect-ecosystem` | This umbrella meta-repo |
+| `selfconnect` | Core Win32 SDK |
+| `selfconnect-enterprise` | Enterprise governance layer |
+| `selfconnect-federal` | Federal/IL6-IL7 tier |
+| `selfconnect-accord` | Compliance evidence platform |
+| `selfconnect-alt` | Deep Win32 optimization fork |
+| `SelfConnect-Mac` | macOS port |
+| `selfconnect-audio` | Audio/voice channel |
+| `selfconnect-plugins` | Plugin extension layer |
+| `selfconnect-log` | Audit logging |
+| `selfconnect-provenance` | Cryptographic provenance |
+| `agent-wire` | Policy dispatch gateway |
+| `agent-status` | Token burn / budget monitor |
+| `bpc-protocol` | Bound Pair Credentials |
+| `tsk-protocol` | Tumbler-Style Rotating Segment Keys |
+| `SelfConnect-Demo-kit-` | Demo kit |
+
+To request access contact the maintainer: **github.com/rblake2320**
+
+---
+
 ## License
 
 Each repository carries its own license. See individual repo READMEs.
