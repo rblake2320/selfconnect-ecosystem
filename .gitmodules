@@ -1,0 +1,36 @@
+[submodule "core"]
+	path = core
+	url = https://github.com/rblake2320/selfconnect
+[submodule "enterprise"]
+	path = enterprise
+	url = https://github.com/rblake2320/selfconnect-enterprise
+[submodule "federal"]
+	path = federal
+	url = https://github.com/rblake2320/selfconnect-federal
+[submodule "accord"]
+	path = accord
+	url = https://github.com/rblake2320/selfconnect-accord
+[submodule "alt"]
+	path = alt
+	url = https://github.com/rblake2320/selfconnect-alt
+[submodule "mac"]
+	path = mac
+	url = https://github.com/rblake2320/SelfConnect-Mac
+[submodule "audio"]
+	path = audio
+	url = https://github.com/rblake2320/selfconnect-audio
+[submodule "plugins"]
+	path = plugins
+	url = https://github.com/rblake2320/selfconnect-plugins
+[submodule "log"]
+	path = log
+	url = https://github.com/rblake2320/selfconnect-log
+[submodule "provenance"]
+	path = provenance
+	url = https://github.com/rblake2320/selfconnect-provenance
+[submodule "demo"]
+	path = demo
+	url = https://github.com/rblake2320/SelfConnect-Demo-kit-
+[submodule "agent-wire"]
+	path = agent-wire
+	url = https://github.com/rblake2320/agent-wire
