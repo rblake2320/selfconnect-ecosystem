@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "selfconnect"
-version = "1.0.0"
+version = "1.1.0"
 description = "SelfConnect.ai Python SDK — AI agent governance, cost control, and compliance"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "SelfConnect.ai", email = "sdk@selfconnect.ai" }]
-keywords = ["ai", "agents", "governance", "compliance", "cost-control", "llm", "langchain", "crewai", "autogen"]
+keywords = ["ai", "agents", "governance", "compliance", "cost-control", "llm", "langchain", "crewai", "autogen", "mcp", "cli"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -26,16 +26,27 @@ requires-python = ">=3.9"
 dependencies = [
     "httpx>=0.24",
     "typing_extensions>=4.0",
+    "click>=8.0",
 ]
 
 [project.optional-dependencies]
 langchain = ["langchain-core>=0.1.0"]
+mcp = ["mcp>=1.0.0"]
+mcp-sse = ["mcp>=1.0.0", "starlette>=0.27", "uvicorn>=0.20"]
 dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
     "pytest-mock>=3.10",
     "respx>=0.20",
 ]
+all = [
+    "langchain-core>=0.1.0",
+    "mcp>=1.0.0",
+]
+
+[project.scripts]
+selfconnect = "selfconnect.cli.main:main"
+selfconnect-mcp = "selfconnect.mcp.server:main"
 
 [project.urls]
 Homepage = "https://selfconnect.ai"
