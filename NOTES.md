@@ -109,3 +109,33 @@ input validation, replay protection, CORS validation.
 
 Run: pnpm test server/security.e2e.test.ts
 Expected: 50/50 pass
+
+---
+
+## Python SDK (selfconnect v1.0.0)
+
+Location: packages/selfconnect-py/
+Install: `pip install selfconnect` (or `pip install -e packages/selfconnect-py/`)
+
+### Key Classes
+- `TskClient`: core client — start_session, post_event, post_events, end_session, get_budget, get_session_workflow, get_tsk_info, get_tsk_events
+- `SelfConnectCallbackHandler`: LangChain callback handler — auto-instruments all LLM calls, tool uses, chain events
+- `GovernedCrew` (integrations/crewai_example.py): wraps CrewAI Crew with governance
+- `GovernedConversation` (integrations/autogen_example.py): wraps AutoGen conversations with governance
+
+### 3-Line Integration
+```python
+from selfconnect import TskClient
+client = TskClient(tsk_key="sc-tsk-YOUR-KEY")
+with client.session("my-agent") as session_id:
+    client.post_event(session_id, "llm_call", tokens_input=512, tokens_output=128)
+```
+
+### Tests
+34 passing (27 unit + 7 live integration against api.selfconnect.ai)
+Run: `cd packages/selfconnect-py && pytest tests/ -v`
+
+### VPS Bugfix Applied
+/tsk/{key}/events endpoint fixed: `created_at` → `ingested_at`, `_store()` → `_db()`
+
+GitHub: commit b5fe59b
