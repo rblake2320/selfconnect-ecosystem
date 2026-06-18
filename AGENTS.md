@@ -16,6 +16,8 @@ SelfConnect is an **OS-native AI-to-AI communication protocol**. It lets AI agen
 
 This is a **meta/umbrella repository**. Every subfolder is a git submodule — a separate GitHub repo that happens to be nested here. You can work in any folder independently.
 
+Some historical submodules are now adjacent context rather than current SelfConnect product scope. When the repo map conflicts with the owner-declared boundary, follow `docs/ecosystem-scope-and-workspaces.md`.
+
 ```
 selfconnect-ecosystem/
 ├── core/           → selfconnect           (the Win32 injection SDK — start here)
@@ -163,3 +165,5 @@ git checkout main
 | `docs/architecture.md` | Full system design with diagrams |
 | `docs/mesh-setup.md` | Step-by-step: bring up the three-node mesh |
 | `docs/security-model.md` | Threat model, policy design, audit chain |
+| `docs/ecosystem-scope-and-workspaces.md` | Current ecosystem boundary, workspace roles, and three-track product split |
+| `docs/competitive-patent-watch.md` | Competitor/patent watch process and SelfConnect defensive claim families |

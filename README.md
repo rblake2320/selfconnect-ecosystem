@@ -35,6 +35,8 @@
 
 ## Repos in This Ecosystem
 
+Note: this table reflects the historical submodule layout. For the current owner-declared product boundary and the adjacent/non-core repo list, use [Ecosystem Scope And Workspaces](docs/ecosystem-scope-and-workspaces.md) as the source of truth.
+
 | Folder | Repo | Description |
 |--------|------|-------------|
 | `core/` | [selfconnect](https://github.com/rblake2320/selfconnect) | Core Win32 SDK — PostMessage + PrintWindow injection, zero API between agents |
@@ -138,6 +140,8 @@ See `docs/` for cross-repo design documents:
 - [Architecture](docs/architecture.md)
 - [Mesh Setup](docs/mesh-setup.md)
 - [Security Model](docs/security-model.md)
+- [Ecosystem Scope And Workspaces](docs/ecosystem-scope-and-workspaces.md)
+- [Competitive And Patent Watch](docs/competitive-patent-watch.md)
 
 ---
 
