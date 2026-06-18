@@ -84,6 +84,32 @@ Do this instead:
 2. Locally print only `SENT`.
 3. Wait for a return packet or assignment.
 
+## Agent Health And Replacement Rubric
+
+Use this rubric before spending more tokens on a confused agent. The goal is to
+separate ordinary delay from a terminal that should be replaced.
+
+| State | Measuring stick | Action |
+| --- | --- | --- |
+| Healthy | Replies by SelfConnect transport, local output is `SENT`/`ACK`/one-line blocker, registry heartbeat current. | Continue. |
+| Degraded | One missed ACK, one hook warning, one packet split, or one slow tool call under 90 seconds. | Send one compact reset/probe. Do not narrate. |
+| Protocol fault by sender | Receiver got only the first line of a multi-line Claude Code packet. | Resend as one physical line or artifact path. Do not blame the receiver on the first occurrence. |
+| Stuck | A simple transport command is still waiting after 90 seconds, or the terminal is waiting on an approval/queued prompt. | Send one interrupt (`Ctrl-C`) if safe, then one single-line reset/probe. |
+| Off-rails | After the reset/probe, the agent still narrates locally instead of sending through SelfConnect, repeats hook errors that block progress, sends to the wrong window, or misses two ACK probes in a row. | Stop using that terminal for active work. Mark it blocked/off-rails and spawn a replacement role with a new `birth_id`. |
+| Unsafe | Target guard fails, wrong HWND/PID/class/title, stale generation, or wrong owner SID. | Do not send. Fix registry/lease/target first. |
+
+Replacement threshold:
+
+1. Read only the last 2,000-3,000 characters of the suspect terminal.
+2. Send one single-line ACK probe through guarded `sc_cli send`.
+3. If it is visibly stuck, send one `Ctrl-C` only.
+4. Send one single-line reset probe.
+5. If no valid ACK comes back, mark the role `blocked` or `off_rails`.
+6. Spawn a replacement with a unique role name (`claude-2`, `codex-terminal-1`, `gemini-1`) and register the new HWND/PID/title/class/birth ID before assigning work.
+
+Do not keep sending increasingly long instructions to a stuck terminal. That
+turns a transport fault into a token burn.
+
 ## Shared State Sources
 
 | State | Source |
