@@ -135,6 +135,7 @@ Use:
 ```powershell
 python -m sc_mesh_registry update --role codex-1 --tokens 125000 --compact-count 1 --missed-acks 0
 python -m sc_mesh_registry health
+python -m sc_mesh_registry watch
 ```
 
 Sharpness bands:
@@ -148,6 +149,23 @@ Sharpness bands:
 Rule of thumb: do not assign patent, security, release, or cross-agent
 coordination work to a red agent unless there is no alternative. Use it as
 read-only context and hand the work to a fresh role.
+
+## Compact Handoff
+
+Agents should write a compact handoff before compaction, replacement, or passing
+work to another role:
+
+```powershell
+python -m sc_mesh_registry handoff --role codex-1 --summary "what changed" --next "what the next agent should do" --tests "validation already run"
+```
+
+The command writes a markdown artifact under the local SelfConnect handoff
+directory, captures registry/health/repo state, updates `last_handoff_path`, and
+increments `compact_count`. For operator status, use:
+
+```powershell
+python -m sc_mesh_registry watch
+```
 
 ## Shared State Sources
 
