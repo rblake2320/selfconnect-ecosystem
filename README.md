@@ -140,6 +140,7 @@ See `docs/` for cross-repo design documents:
 - [Architecture](docs/architecture.md)
 - [Mesh Setup](docs/mesh-setup.md)
 - [Security Model](docs/security-model.md)
+- [Agent Mesh Coordination](docs/agent-mesh-coordination.md)
 - [Ecosystem Scope And Workspaces](docs/ecosystem-scope-and-workspaces.md)
 - [Competitive And Patent Watch](docs/competitive-patent-watch.md)
 

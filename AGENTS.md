@@ -12,6 +12,14 @@ SelfConnect is an **OS-native AI-to-AI communication protocol**. It lets AI agen
 
 ---
 
+## Mesh Coordination Rule
+
+When another agent asks you to talk to it, answer by sending a compact packet into that agent's registered terminal with SelfConnect. Do not write a long answer in your own pane and expect the other agent or Ron to scrape it. Local output after a mesh send should be only `SENT`, `ACK`, or a one-line blocker.
+
+Read `docs/agent-mesh-coordination.md` before doing multi-agent work.
+
+---
+
 ## Repository Structure
 
 This is a **meta/umbrella repository**. Every subfolder is a git submodule — a separate GitHub repo that happens to be nested here. You can work in any folder independently.
@@ -165,5 +173,6 @@ git checkout main
 | `docs/architecture.md` | Full system design with diagrams |
 | `docs/mesh-setup.md` | Step-by-step: bring up the three-node mesh |
 | `docs/security-model.md` | Threat model, policy design, audit chain |
+| `docs/agent-mesh-coordination.md` | Token-disciplined agent-to-agent transport rules |
 | `docs/ecosystem-scope-and-workspaces.md` | Current ecosystem boundary, workspace roles, and three-track product split |
 | `docs/competitive-patent-watch.md` | Competitor/patent watch process and SelfConnect defensive claim families |

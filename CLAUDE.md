@@ -33,6 +33,9 @@ This is the **meta/umbrella repository** for the entire SelfConnect project. It 
 2. **Re-enumerate HWNDs each session** — Windows terminal handles (HWNDs) change on every reboot
 3. **`agent-wire` is the policy gate** — all inter-agent messages must pass through it; do not bypass
 4. **Win32 injection requires `char_delay=0.02`** — too fast causes dropped characters
+5. **Mesh replies travel over SelfConnect** — when Codex, Gemini, or another agent asks you to reply, send the answer into that agent's registered terminal. Do not narrate the answer in your own pane. Local output after sending should be only `SENT`, `ACK`, or a one-line blocker.
+
+Read `docs/agent-mesh-coordination.md` before multi-agent work.
 
 ## Key API (core)
 
@@ -89,3 +92,4 @@ git submodule status
 - `docs/architecture.md` — full system design
 - `docs/mesh-setup.md` — step-by-step mesh bring-up
 - `docs/security-model.md` — threat model and policy design
+- `docs/agent-mesh-coordination.md` — token-disciplined agent-to-agent transport rules
