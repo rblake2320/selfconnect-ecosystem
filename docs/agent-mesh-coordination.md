@@ -110,6 +110,45 @@ Replacement threshold:
 Do not keep sending increasingly long instructions to a stuck terminal. That
 turns a transport fault into a token burn.
 
+## Sharpness Tracking
+
+Long sessions drift. Compaction preserves broad state, but details and operating
+discipline degrade. Track sharpness as an operational signal, not as a judgment
+about the model.
+
+Measured directly:
+
+- session age from `created_at`;
+- heartbeat age from `last_seen`;
+- status (`active`, `degraded`, `compacting`, `off_rails`, `standby`);
+- missed ACK count when agents fail transport probes;
+- compaction count when an agent reports or performs compaction.
+
+Estimated manually:
+
+- token burn, because agent terminals do not expose a reliable cross-vendor
+  token counter. If visible in the UI, record it as `tokens`; otherwise leave it
+  unknown rather than inventing a number.
+
+Use:
+
+```powershell
+python -m sc_mesh_registry update --role codex-1 --tokens 125000 --compact-count 1 --missed-acks 0
+python -m sc_mesh_registry health
+```
+
+Sharpness bands:
+
+| Band | Measuring stick | Action |
+| --- | --- | --- |
+| Green | Fresh heartbeat, low age, no missed ACKs, no compaction pressure. | Continue. |
+| Yellow | Session older than 2 hours, one compaction, one missed ACK, stale heartbeat, or tokens around 120k+. | Checkpoint, send compact status, consider replacement after current task. |
+| Red | Session older than 4 hours, tokens around 180k+, two missed ACKs, repeated compactions, or off-rails/stuck status. | Compact handoff or replace before assigning complex work. |
+
+Rule of thumb: do not assign patent, security, release, or cross-agent
+coordination work to a red agent unless there is no alternative. Use it as
+read-only context and hand the work to a fresh role.
+
 ## Shared State Sources
 
 | State | Source |
