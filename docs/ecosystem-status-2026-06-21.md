@@ -8,7 +8,7 @@ through multiple terminals or session transcripts.
 
 | Repo | Local path | Branch | Head | State | Remote |
 |---|---|---:|---:|---|---|
-| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `01b241b` | clean, Gemini 5 PASS, 10 blocked by quota, Fabric V2 frame/mailbox PASS | `https://github.com/rblake2320/selfconnect.git` |
+| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `d854cf1` | clean, Gemini 5 PASS, 10 blocked by quota, Fabric V2 frame/mailbox + host PASS | `https://github.com/rblake2320/selfconnect.git` |
 | selfconnect-enterprise | `C:\Users\techai\PKA testing\selfconnect-enterprise` | `master` | `9d3f98d` | clean, CI PASS | `https://github.com/rblake2320/selfconnect-enterprise.git` |
 | selfconnect-ecosystem | `C:\Users\techai\PKA testing\selfconnect-ecosystem` | `main` | `81ebcad` | clean, readiness checker added | `https://github.com/rblake2320/selfconnect-ecosystem.git` |
 | selfconnect-terminal | `C:\Users\techai\PKA testing\selfconnect-terminal` | `main` | `bcf86ca` | clean | `https://github.com/rblake2320/selfconnect-terminal.git` |
@@ -40,11 +40,11 @@ before relying on them as source-of-truth.
 
 ### Core SelfConnect
 
-Current branch: `test/win32-hardening-v1` at `01b241b`.
+Current branch: `test/win32-hardening-v1` at `d854cf1`.
 
 Validated on this node:
 
-- Full pytest: `470 passed, 9 skipped`
+- Full pytest: `473 passed, 9 skipped`
 - Scoped package ruff gate: PASS
 - `py_compile` for package entry modules: PASS
 - Fabric V2 focused tests: `19 passed`
@@ -65,8 +65,11 @@ Real-agent proof already recorded in core docs:
 - Logical/adversarial Fabric suites: PASS
 - Fabric V2 frame/mailbox slice: PASS
   - `sc_fabric_v2.py`
+  - `sc_fabric_host.py`
   - `selfconnect-fabric selftest`
+  - `selfconnect-fabric-host selftest`
   - real Windows named-pipe ACK selftest: `0.797 ms`
+  - IOCP-dispatched host ACK selftest: PASS, first roundtrip `0.494 ms`
   - `selfconnect-bench --transport fabric_v2_frame_mailbox --agents 5`
   - V2 transport/governance p99: `0.152 ms`
   - model calls per known task: `0.0`
@@ -77,9 +80,10 @@ Boundary:
   repo includes legacy scratch scripts and vision-server experiments with
   pre-existing lint debt. Use the scoped package gate until those folders are
   either excluded or cleaned.
-- Fabric V2 now proves frame/mailbox/security semantics and a real Windows
-  named-pipe transport species. Production IOCP host service is still the next
-  controllable build target, not yet complete. Tracker:
+- Fabric V2 now proves frame/mailbox/security semantics, a real Windows
+  named-pipe transport species, and an IOCP-dispatched host ACK path. Direct
+  overlapped named-pipe read/write and per-user router are still the next
+  controllable build target. Tracker:
   https://github.com/rblake2320/selfconnect/issues/7
 
 ### SelfConnect Enterprise
@@ -176,7 +180,7 @@ Additional validation completed after the initial snapshot:
   - MSI release workflow: PASS, run `27897466199`
   - MSI code-signing secrets: BLOCKED, missing
     `WINDOWS_SIGNING_CERT_BASE64` and `WINDOWS_SIGNING_CERT_PASSWORD`
-- `selfconnect` at `01b241b`: freeze-check PASS, adversarial suite PASS
+- `selfconnect` at `d854cf1`: freeze-check PASS, adversarial suite PASS
   (`adversarial_20260621_023543`), mesh event chain PASS at head
   `66a303516a8bf39576ffe679ed6747e8b8802ab99a240cdc2e8f8d88cbb36bd1`,
   scoped Win32/package tests `35 passed`, scoped ruff PASS, py_compile PASS.
@@ -194,14 +198,16 @@ Additional validation completed after the initial snapshot:
   (`SC_REAL5_20260621_064240`). The 10-Gemini rung is blocked by provider quota
   (`SC_REAL5_20260621_073044`), tracked in issue #5. No secret values are
   tracked.
-- `selfconnect` Fabric V2 slice at `01b241b`: `sc_fabric_v2.py` added with
+- `selfconnect` Fabric V2 slice at `d854cf1`: `sc_fabric_v2.py` added with
   session-derived HMAC frames, receiver binding, payload hashes, replay
   rejection, deadline rejection, bounded mailbox backpressure, and
-  `selfconnect-fabric` CLI. Redacted artifacts are tracked in core:
+  `selfconnect-fabric` CLI. `sc_fabric_host.py` added an IOCP-dispatched host
+  ACK path and `selfconnect-fabric-host` CLI. Redacted artifacts are tracked in core:
   `fabric_v2_selftest_20260621_073951_redacted.json`,
+  `fabric_v2_host_selftest_20260621_074925_redacted.json`,
   `fabric_v2_5agent_baseline_redacted.json`, and
   `baseline_5agent_fabric_v2_frame_mailbox.json`. The wheel includes the new
-  module, CLI entry point, and these artifacts.
+  modules, CLI entry points, and these artifacts.
 - `selfconnect-enterprise` at `9d3f98d`: GitHub Actions MSI release workflow
   run `27897466199` PASS; artifact bundle `selfconnect-enterprise-msi`
   contains `selfconnect-enterprise-1.2.3.msi`, `msi-evidence.json`, and
