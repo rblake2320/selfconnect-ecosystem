@@ -22,9 +22,12 @@ REPOS = {
     "selfconnect": "selfconnect",
     "selfconnect-enterprise": "selfconnect-enterprise",
     "selfconnect-ecosystem": "selfconnect-ecosystem",
+    "selfconnect-terminal": "selfconnect-terminal",
+    "selfconnect-linux": "selfconnect-linux",
+    "selfconnect-alt": "selfconnect-alt",
     "bpc-protocol": "bpc-protocol",
     "tsk-protocol": "tsk-protocol",
-    "selfconnect-alt": "selfconnect-alt",
+    "patent-portfolio": "patent-portfolio",
 }
 
 GEMINI_ENV_VARS = (

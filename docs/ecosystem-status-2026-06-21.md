@@ -139,7 +139,7 @@ Additional validation completed after the initial snapshot:
   `npm run readiness` as the single big-view readiness gate. Current readiness
   output is `ATTENTION`, not because local repo work is dirty, but because
   external gates remain unresolved:
-  - repo hygiene: PASS, `6/6` tracked primary repos clean and synced
+  - repo hygiene: PASS, `9/9` tracked primary repos clean and synced
   - Gemini non-interactive auth: BLOCKED, Gemini CLI `0.46.0` present but no
     `GEMINI_API_KEY`, no Google ADC, no `gcloud`, and no default ADC file
   - TPM platform attestation: NA on this host, `NCryptCreateClaim -> 0x80090026`
