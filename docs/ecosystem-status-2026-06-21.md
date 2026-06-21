@@ -104,15 +104,18 @@ Boundary:
      nonce through SelfConnect.
    - Current blocker: Gemini CLI requires interactive login, `GEMINI_API_KEY`,
      or Google Application Default Credentials.
+   - Tracker: https://github.com/rblake2320/selfconnect-ecosystem/issues/2
 
 2. TPM PASS artifact:
    - Required evidence: `enterprise.tpm_attestation.tpm_probe()` returns
      `supported=true`, nonzero claim blob, and verification succeeds.
    - Current blocker: this host returns `0x80090026`.
+   - Tracker: https://github.com/rblake2320/selfconnect-ecosystem/issues/3
 
 3. Release installer automation:
    - Required evidence: CI/release runner builds, signs, and publishes the MSI.
    - Current state: local WiX v4 MSI build passes and SHA-256 is recorded.
+   - Tracker: https://github.com/rblake2320/selfconnect-ecosystem/issues/4
 
 4. Dirty repo cleanup:
    - Required evidence: each repo listed under "Repos Present But Dirty" has a

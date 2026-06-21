@@ -38,3 +38,13 @@ As of 2026-06-21, the executable checks are expected to report:
   `WINDOWS_SIGNING_CERT_PASSWORD` GitHub secrets are configured.
 
 The MSI artifact build/upload workflow itself is expected to pass.
+
+## Open Tracking Issues
+
+The current external blockers are tracked in the private ecosystem repo:
+
+| Gate | Issue |
+|---|---|
+| Gemini non-interactive auth | https://github.com/rblake2320/selfconnect-ecosystem/issues/2 |
+| TPM platform attestation PASS artifact | https://github.com/rblake2320/selfconnect-ecosystem/issues/3 |
+| Windows MSI signing secrets and signed artifact | https://github.com/rblake2320/selfconnect-ecosystem/issues/4 |
