@@ -10,10 +10,11 @@ through multiple terminals or session transcripts.
 |---|---|---:|---:|---|---|
 | selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `7f7c272` | pushed, v0.10.5, Gemini 5 PASS, 10 blocked by quota, Fabric V2 SCM service + DACL + runtime SID + service wrapper PASS | `https://github.com/rblake2320/selfconnect.git` |
 | selfconnect-enterprise | `C:\Users\techai\PKA testing\selfconnect-enterprise` | `master` | `9d3f98d` | clean, CI PASS | `https://github.com/rblake2320/selfconnect-enterprise.git` |
-| selfconnect-ecosystem | `C:\Users\techai\PKA testing\selfconnect-ecosystem` | `main` | `81ebcad` | clean, readiness checker added | `https://github.com/rblake2320/selfconnect-ecosystem.git` |
+| selfconnect-ecosystem | `C:\Users\techai\PKA testing\selfconnect-ecosystem` | `main` | `8b37aea` | clean, readiness checker + runtime SID proof recorded | `https://github.com/rblake2320/selfconnect-ecosystem.git` |
 | selfconnect-terminal | `C:\Users\techai\PKA testing\selfconnect-terminal` | `main` | `bcf86ca` | clean | `https://github.com/rblake2320/selfconnect-terminal.git` |
 | selfconnect-linux | `C:\Users\techai\PKA testing\selfconnect-linux` | `main` | `b2c1723` | clean | `https://github.com/rblake2320/selfconnect-linux.git` |
 | selfconnect-alt | `C:\Users\techai\PKA testing\selfconnect-alt` | `master` | `8a6a2c4` | clean, local evidence manifest pushed | `https://github.com/rblake2320/selfconnect-alt.git` |
+| system-dashboard | `C:\Users\techai\system-dashboard` | `master` | `6c98b1e` | pushed, CI PASS, fleet guard + BPC/TSK governance controls | `https://github.com/rblake2320/system-dashboard.git` |
 | bpc-protocol | `C:\Users\techai\PKA testing\bpc-protocol` | `master` | `63e8493` | clean, tests/build PASS | `https://github.com/rblake2320/bpc-protocol.git` |
 | tsk-protocol | `C:\Users\techai\PKA testing\tsk-protocol` | `master` | `3eecf2a` | clean, tests/build/typecheck PASS | `https://github.com/rblake2320/tsk-protocol.git` |
 | patent-portfolio | `C:\Users\techai\PKA testing\patent-portfolio` | `master` | `1687559` | clean | `https://github.com/rblake2320/patent-portfolio.git` |
@@ -250,6 +251,12 @@ Additional validation completed after the initial snapshot:
   `fabric_v2_5agent_baseline_redacted.json`, and
   `baseline_5agent_fabric_v2_frame_mailbox.json`. The wheel includes the new
   modules, CLI entry points, and these artifacts.
+- `system-dashboard` at `6c98b1e`: GitHub Actions run `27913136140` PASS.
+  The dashboard now has a fleet panel and auto-halt guard API, evidence-bundle
+  capture code, scoped dashboard API tokens, BPC pair generation/revoke/rotation
+  controls, a metadata-covered BPC hash-chain audit log, BPC/TSK process health
+  tracking, and repo-aware BPC/TSK start paths. Local dashboard tests passed
+  with repo-local temp storage: `128 passed`.
 - `selfconnect-enterprise` at `9d3f98d`: GitHub Actions MSI release workflow
   run `27897466199` PASS; artifact bundle `selfconnect-enterprise-msi`
   contains `selfconnect-enterprise-1.2.3.msi`, `msi-evidence.json`, and
