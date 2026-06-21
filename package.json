@@ -5,6 +5,7 @@
   "description": "SelfConnect monorepo — TSK client, MCP server, and Python SDK",
   "scripts": {
     "build": "pnpm -r run build",
-    "test": "pnpm -r run test"
+    "test": "pnpm -r run test",
+    "readiness": "python scripts/readiness.py --markdown"
   }
 }
