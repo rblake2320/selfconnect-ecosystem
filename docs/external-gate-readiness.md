@@ -33,6 +33,8 @@ treated as CI failures unless `--fail-on-blockers` is used intentionally.
 
 - key ecosystem repo cleanliness and upstream sync;
 - Gemini CLI presence plus non-interactive auth readiness;
+- Gemini auth variables in Process, User, and Machine environment scopes,
+  without printing secret values;
 - TPM platform attestation readiness through `enterprise.tpm_attestation`;
 - latest GitHub MSI artifact workflow status;
 - required Windows code-signing secrets for MSI signing.

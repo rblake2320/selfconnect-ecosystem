@@ -17,6 +17,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+if sys.platform == "win32":
+    import winreg
+else:  # pragma: no cover - exercised on Windows in production
+    winreg = None
+
 
 REPOS = {
     "selfconnect": "selfconnect",
@@ -123,6 +128,45 @@ def default_adc_paths() -> list[Path]:
     return paths
 
 
+def windows_registry_env(name: str, scope: str) -> str:
+    if winreg is None:
+        return ""
+    if scope == "User":
+        hive = winreg.HKEY_CURRENT_USER
+        subkey = "Environment"
+    elif scope == "Machine":
+        hive = winreg.HKEY_LOCAL_MACHINE
+        subkey = r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
+    else:
+        raise ValueError(f"unknown environment scope: {scope}")
+    try:
+        with winreg.OpenKey(hive, subkey) as key:
+            value, _ = winreg.QueryValueEx(key, name)
+    except OSError:
+        return ""
+    return str(value)
+
+
+def env_presence(name: str) -> dict[str, dict[str, int | bool]]:
+    values = {
+        "process": os.environ.get(name, ""),
+        "user": windows_registry_env(name, "User"),
+        "machine": windows_registry_env(name, "Machine"),
+    }
+    return {
+        scope: {"present": bool(value), "length": len(value)}
+        for scope, value in values.items()
+    }
+
+
+def first_env_value(name: str) -> str:
+    return (
+        os.environ.get(name, "")
+        or windows_registry_env(name, "User")
+        or windows_registry_env(name, "Machine")
+    )
+
+
 def check_gemini() -> dict[str, Any]:
     gemini = shutil.which("gemini")
     gcloud = shutil.which("gcloud")
@@ -131,13 +175,13 @@ def check_gemini() -> dict[str, Any]:
         result = run_cmd([gemini, "--version"], timeout=20)
         version = result.stdout if result.returncode == 0 else None
 
-    env = {name: {"present": bool(os.environ.get(name)), "length": len(os.environ.get(name, ""))} for name in GEMINI_ENV_VARS}
+    env = {name: env_presence(name) for name in GEMINI_ENV_VARS}
     adc = [{"path": str(path), "present": path.exists()} for path in default_adc_paths()]
-    google_credentials_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    google_credentials_path = first_env_value("GOOGLE_APPLICATION_CREDENTIALS")
     google_credentials_file = bool(google_credentials_path and Path(google_credentials_path).exists())
 
     auth_configured = bool(
-        os.environ.get("GEMINI_API_KEY")
+        first_env_value("GEMINI_API_KEY")
         or google_credentials_file
         or any(item["present"] for item in adc)
     )

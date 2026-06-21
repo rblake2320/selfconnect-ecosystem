@@ -1,5 +1,6 @@
 import importlib.util
 import io
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -37,6 +38,26 @@ class ReadinessContractTests(unittest.TestCase):
             readiness.parse_secret_names(output),
             {"WINDOWS_SIGNING_CERT_BASE64", "WINDOWS_SIGNING_CERT_PASSWORD"},
         )
+
+    def test_env_presence_reports_process_user_and_machine_without_values(self) -> None:
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "process-secret"}, clear=False), patch.object(
+            readiness,
+            "windows_registry_env",
+            side_effect=lambda name, scope: f"{scope.lower()}-secret" if name == "GEMINI_API_KEY" else "",
+        ):
+            report = readiness.env_presence("GEMINI_API_KEY")
+
+        self.assertEqual(report["process"], {"present": True, "length": len("process-secret")})
+        self.assertEqual(report["user"], {"present": True, "length": len("user-secret")})
+        self.assertEqual(report["machine"], {"present": True, "length": len("machine-secret")})
+
+    def test_first_env_value_falls_back_to_user_then_machine(self) -> None:
+        with patch.dict(os.environ, {}, clear=True), patch.object(
+            readiness,
+            "windows_registry_env",
+            side_effect=lambda name, scope: "user-secret" if scope == "User" else "machine-secret",
+        ):
+            self.assertEqual(readiness.first_env_value("GEMINI_API_KEY"), "user-secret")
 
     def test_markdown_includes_external_gate_trackers(self) -> None:
         report = {

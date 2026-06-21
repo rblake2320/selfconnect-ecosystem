@@ -8,7 +8,7 @@ through multiple terminals or session transcripts.
 
 | Repo | Local path | Branch | Head | State | Remote |
 |---|---|---:|---:|---|---|
-| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `9f63ab4` | clean, Gemini auth recheck recorded | `https://github.com/rblake2320/selfconnect.git` |
+| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `337db9b` | clean, Gemini env fallback hardened | `https://github.com/rblake2320/selfconnect.git` |
 | selfconnect-enterprise | `C:\Users\techai\PKA testing\selfconnect-enterprise` | `master` | `9d3f98d` | clean, CI PASS | `https://github.com/rblake2320/selfconnect-enterprise.git` |
 | selfconnect-ecosystem | `C:\Users\techai\PKA testing\selfconnect-ecosystem` | `main` | `81ebcad` | clean, readiness checker added | `https://github.com/rblake2320/selfconnect-ecosystem.git` |
 | selfconnect-terminal | `C:\Users\techai\PKA testing\selfconnect-terminal` | `main` | `bcf86ca` | clean | `https://github.com/rblake2320/selfconnect-terminal.git` |
@@ -146,13 +146,17 @@ Additional validation completed after the initial snapshot:
   - MSI release workflow: PASS, run `27897466199`
   - MSI code-signing secrets: BLOCKED, missing
     `WINDOWS_SIGNING_CERT_BASE64` and `WINDOWS_SIGNING_CERT_PASSWORD`
-- `selfconnect` at `9f63ab4`: freeze-check PASS, adversarial suite PASS
+- `selfconnect` at `337db9b`: freeze-check PASS, adversarial suite PASS
   (`adversarial_20260621_023543`), mesh event chain PASS at head
   `66a303516a8bf39576ffe679ed6747e8b8802ab99a240cdc2e8f8d88cbb36bd1`,
   scoped Win32/package tests `35 passed`, scoped ruff PASS, py_compile PASS.
   Fresh Gemini ADC checks are recorded: no API key, no gcloud, no default ADC.
   Gemini recheck `SC_PROVIDER_PREFLIGHT_20260621_061132` still failed as
   `provider_auth_required` because the key was not visible to the test process.
+  Runner hardening now pulls Gemini auth variables from Process, User, or
+  Machine env at runtime without printing secrets; recheck
+  `SC_PROVIDER_PREFLIGHT_20260621_061439` still failed because all three env
+  scopes were empty for the key/ADC variables.
 - `selfconnect-enterprise` at `9d3f98d`: GitHub Actions MSI release workflow
   run `27897466199` PASS; artifact bundle `selfconnect-enterprise-msi`
   contains `selfconnect-enterprise-1.2.3.msi`, `msi-evidence.json`, and
