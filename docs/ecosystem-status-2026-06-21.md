@@ -8,7 +8,7 @@ through multiple terminals or session transcripts.
 
 | Repo | Local path | Branch | Head | State | Remote |
 |---|---|---:|---:|---|---|
-| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `87ae079` | pushed, v0.10.5, Gemini 5 PASS, 10 blocked by quota, Fabric V2 SCM service + DACL + service wrapper PASS | `https://github.com/rblake2320/selfconnect.git` |
+| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `7f7c272` | pushed, v0.10.5, Gemini 5 PASS, 10 blocked by quota, Fabric V2 SCM service + DACL + runtime SID + service wrapper PASS | `https://github.com/rblake2320/selfconnect.git` |
 | selfconnect-enterprise | `C:\Users\techai\PKA testing\selfconnect-enterprise` | `master` | `9d3f98d` | clean, CI PASS | `https://github.com/rblake2320/selfconnect-enterprise.git` |
 | selfconnect-ecosystem | `C:\Users\techai\PKA testing\selfconnect-ecosystem` | `main` | `81ebcad` | clean, readiness checker added | `https://github.com/rblake2320/selfconnect-ecosystem.git` |
 | selfconnect-terminal | `C:\Users\techai\PKA testing\selfconnect-terminal` | `main` | `bcf86ca` | clean | `https://github.com/rblake2320/selfconnect-terminal.git` |
@@ -40,16 +40,16 @@ before relying on them as source-of-truth.
 
 ### Core SelfConnect
 
-Current branch: `test/win32-hardening-v1` at `87ae079`.
+Current branch: `test/win32-hardening-v1` at `7f7c272`.
 
 Validated on this node:
 
-- Full pytest: `497 passed, 9 skipped`
+- Full pytest: `501 passed, 9 skipped`
 - Scoped package ruff gate: PASS
 - `py_compile` for package entry modules: PASS
 - Fabric V2 focused tests: `39 passed`
 - Targeted Win32 package tests: `35 passed`
-- Python package build: `selfconnect-0.10.4` sdist/wheel PASS
+- Python package build: `selfconnect-0.10.5` sdist/wheel PASS
 
 Real-agent proof already recorded in core docs:
 
@@ -77,6 +77,7 @@ Real-agent proof already recorded in core docs:
   - service wrapper selftest: PASS; roundtrip, restart, state persistence, watchdog
   - Windows SCM service wrapper: PASS; `SelfConnectFabricV2` install/remove/start/stop/query helpers
   - named-pipe DACL hardening: PASS; owner SID + SYSTEM, deny-all fallback
+  - runtime OS owner-SID lookup: PASS; `OpenProcessToken` -> `GetTokenInformation(TokenUser)` -> `ConvertSidToStringSidW`
   - service transport 5-agent baseline: PASS; p99 `1.049 ms`, model calls `0.0`
   - `selfconnect-bench --transport fabric_v2_frame_mailbox --agents 5`
   - `selfconnect-bench --transport fabric_v2_service_transport --agents 5`
@@ -95,7 +96,8 @@ Boundary:
   overlapped named-pipe read/write, router restart replay-state recovery,
   queued mailbox payload recovery after restart, and a long-lived user-mode
   service wrapper. Windows SCM service integration and DACL hardening are now
-  productized. Full governed daemon coverage beyond Fabric V2 remains separate.
+  productized. Runtime owner-SID lookup is proven via Win32 token APIs. Full
+  governed daemon coverage beyond Fabric V2 remains separate.
   Tracker:
   https://github.com/rblake2320/selfconnect/issues/7
 
@@ -204,7 +206,7 @@ Additional validation completed after the initial snapshot:
   - MSI release workflow: PASS, run `27897466199`
   - MSI code-signing secrets: BLOCKED, missing
     `WINDOWS_SIGNING_CERT_BASE64` and `WINDOWS_SIGNING_CERT_PASSWORD`
-- `selfconnect` at `87ae079`: freeze-check PASS, adversarial suite PASS
+- `selfconnect` at `7f7c272`: freeze-check PASS, adversarial suite PASS
   (`adversarial_20260621_023543`), mesh event chain PASS at head
   `66a303516a8bf39576ffe679ed6747e8b8802ab99a240cdc2e8f8d88cbb36bd1`,
   scoped Win32/package tests `35 passed`, scoped ruff PASS, py_compile PASS.
@@ -222,7 +224,7 @@ Additional validation completed after the initial snapshot:
   (`SC_REAL5_20260621_064240`). The 10-Gemini rung is blocked by provider quota
   (`SC_REAL5_20260621_073044`), tracked in issue #5. No secret values are
   tracked.
-- `selfconnect` Fabric V2 slice at `87ae079`: `sc_fabric_v2.py` added with
+- `selfconnect` Fabric V2 slice at `7f7c272`: `sc_fabric_v2.py` added with
   session-derived HMAC frames, receiver binding, payload hashes, replay
   rejection, deadline rejection, bounded mailbox backpressure, and
   `selfconnect-fabric` CLI. `sc_fabric_host.py` added an IOCP-dispatched host
@@ -233,7 +235,8 @@ Additional validation completed after the initial snapshot:
   payload recovery after restart, watchdog loop, and `selfconnect-fabric-service`
   CLI. `sc_fabric_windows_svc.py` added the Windows SCM `SelfConnectFabricV2`
   service wrapper and install/remove/start/stop/query helpers. v0.10.5 also
-  added named-pipe DACL hardening in `sc_fabric_v2.py`. Redacted
+  added named-pipe DACL hardening in `sc_fabric_v2.py` and runtime owner-SID
+  lookup in `sc_mesh_lease.py`. Redacted
   artifacts are tracked in core:
   `fabric_v2_selftest_20260621_073951_redacted.json`,
   `fabric_v2_host_selftest_20260621_074925_redacted.json`,
@@ -243,6 +246,7 @@ Additional validation completed after the initial snapshot:
   `fabric_v2_service_selftest_20260621_113419_redacted.json`,
   `SC_FABRIC_SERVICE_20260621_1135_redacted.json`,
   `baseline_5agent_fabric_v2_service_transport.json`,
+  `runtime_sid_probe_PASS_redacted.json`,
   `fabric_v2_5agent_baseline_redacted.json`, and
   `baseline_5agent_fabric_v2_frame_mailbox.json`. The wheel includes the new
   modules, CLI entry points, and these artifacts.
