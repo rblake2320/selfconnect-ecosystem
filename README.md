@@ -37,6 +37,8 @@
 
 Note: this table reflects the historical submodule layout. For the current owner-declared product boundary and the adjacent/non-core repo list, use [Ecosystem Scope And Workspaces](docs/ecosystem-scope-and-workspaces.md) as the source of truth.
 
+Current status snapshot: [`docs/ecosystem-status-2026-06-21.md`](docs/ecosystem-status-2026-06-21.md)
+
 | Folder | Repo | Description |
 |--------|------|-------------|
 | `core/` | [selfconnect](https://github.com/rblake2320/selfconnect) | Core Win32 SDK — PostMessage + PrintWindow injection, zero API between agents |
