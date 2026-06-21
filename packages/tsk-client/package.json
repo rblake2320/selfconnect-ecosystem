@@ -13,9 +13,9 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
-    "test": "jest tests/",
-    "test:live": "TSK_LIVE=1 node --experimental-vm-modules node_modules/.bin/jest tests/",
+    "build": "node ./node_modules/tsup/dist/cli-default.js src/index.ts --format cjs,esm --dts --clean",
+    "test": "node ./node_modules/jest/bin/jest.js tests/",
+    "test:live": "node -e \"process.env.TSK_LIVE='1'; process.argv.push('tests/'); require('./node_modules/jest/bin/jest.js')\"",
     "prepublishOnly": "pnpm build"
   },
   "keywords": [
