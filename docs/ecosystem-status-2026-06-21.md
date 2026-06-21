@@ -8,9 +8,9 @@ through multiple terminals or session transcripts.
 
 | Repo | Local path | Branch | Head | State | Remote |
 |---|---|---:|---:|---|---|
-| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `86f6c43` | clean, gate status refreshed | `https://github.com/rblake2320/selfconnect.git` |
-| selfconnect-enterprise | `C:\Users\techai\PKA testing\selfconnect-enterprise` | `master` | `5d91d84` | clean, CI PASS | `https://github.com/rblake2320/selfconnect-enterprise.git` |
-| selfconnect-ecosystem | `C:\Users\techai\PKA testing\selfconnect-ecosystem` | `main` | `0ebd201` | clean before this doc update | `https://github.com/rblake2320/selfconnect-ecosystem.git` |
+| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `ac2c60e` | clean, gate status refreshed | `https://github.com/rblake2320/selfconnect.git` |
+| selfconnect-enterprise | `C:\Users\techai\PKA testing\selfconnect-enterprise` | `master` | `9d3f98d` | clean, CI PASS | `https://github.com/rblake2320/selfconnect-enterprise.git` |
+| selfconnect-ecosystem | `C:\Users\techai\PKA testing\selfconnect-ecosystem` | `main` | `d8c17ec` | clean before this doc update | `https://github.com/rblake2320/selfconnect-ecosystem.git` |
 | selfconnect-terminal | `C:\Users\techai\PKA testing\selfconnect-terminal` | `main` | `bcf86ca` | clean | `https://github.com/rblake2320/selfconnect-terminal.git` |
 | selfconnect-linux | `C:\Users\techai\PKA testing\selfconnect-linux` | `main` | `b2c1723` | clean | `https://github.com/rblake2320/selfconnect-linux.git` |
 | selfconnect-alt | `C:\Users\techai\PKA testing\selfconnect-alt` | `master` | `8a6a2c4` | clean, local evidence manifest pushed | `https://github.com/rblake2320/selfconnect-alt.git` |
@@ -40,7 +40,7 @@ before relying on them as source-of-truth.
 
 ### Core SelfConnect
 
-Current branch: `test/win32-hardening-v1` at `86f6c43`.
+Current branch: `test/win32-hardening-v1` at `ac2c60e`.
 
 Validated on this node:
 
@@ -66,7 +66,7 @@ Boundary:
 
 ### SelfConnect Enterprise
 
-Current branch: `master` at `5d91d84`.
+Current branch: `master` at `9d3f98d`.
 
 Validated on this node and GitHub:
 
@@ -131,17 +131,18 @@ Boundary:
 
 Additional validation completed after the initial snapshot:
 
-- `selfconnect` at `86f6c43`: freeze-check PASS, adversarial suite PASS
+- `selfconnect` at `ac2c60e`: freeze-check PASS, adversarial suite PASS
   (`adversarial_20260621_023543`), mesh event chain PASS at head
   `66a303516a8bf39576ffe679ed6747e8b8802ab99a240cdc2e8f8d88cbb36bd1`,
   scoped Win32/package tests `35 passed`, scoped ruff PASS, py_compile PASS.
-- `selfconnect-enterprise` at `5d91d84`: GitHub Actions MSI release workflow
+  Fresh Gemini ADC checks are recorded: no API key, no gcloud, no default ADC.
+- `selfconnect-enterprise` at `9d3f98d`: GitHub Actions MSI release workflow
   run `27897466199` PASS; artifact bundle `selfconnect-enterprise-msi`
   contains `selfconnect-enterprise-1.2.3.msi`, `msi-evidence.json`, and
   `msi-sha256.txt`. Artifact SHA-256:
   `9A1CD2F56B6A4CE3AEFC6CC8CF4C5FE09B07F406F6D0E3ED8E62D9591749CF4D`.
   Signing remains `false` until certificate secrets are configured. GitHub CI
-  run `27897545763` PASS for the evidence commit.
+  run `27897628104` PASS for the evidence commit.
 - `bpc-protocol` at `63e8493`: `npm test` PASS and `npm run build` PASS.
 - `tsk-protocol` at `3eecf2a`: `npm test` PASS, `npm run build` PASS,
   `npm run typecheck` PASS, `demo/e2e_browser_test.py` py_compile PASS, and
