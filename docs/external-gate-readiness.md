@@ -25,6 +25,10 @@ Contract tests for the readiness checker:
 npm run test:readiness
 ```
 
+GitHub Actions runs the same contract test in `.github/workflows/readiness.yml`.
+The live readiness report is smoke-run there, but external blockers are not
+treated as CI failures unless `--fail-on-blockers` is used intentionally.
+
 ## Gates Covered
 
 - key ecosystem repo cleanliness and upstream sync;
