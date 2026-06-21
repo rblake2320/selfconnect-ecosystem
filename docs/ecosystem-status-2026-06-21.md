@@ -9,10 +9,13 @@ through multiple terminals or session transcripts.
 | Repo | Local path | Branch | Head | State | Remote |
 |---|---|---:|---:|---|---|
 | selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `ec44a0f` | clean | `https://github.com/rblake2320/selfconnect.git` |
-| selfconnect-enterprise | `C:\Users\techai\PKA testing\selfconnect-enterprise` | `master` | `4287eb5` | clean, CI PASS | `https://github.com/rblake2320/selfconnect-enterprise.git` |
-| selfconnect-ecosystem | `C:\Users\techai\PKA testing\selfconnect-ecosystem` | `main` | `695cf8a` | clean before this doc | `https://github.com/rblake2320/selfconnect-ecosystem.git` |
+| selfconnect-enterprise | `C:\Users\techai\PKA testing\selfconnect-enterprise` | `master` | `bb83ae8` | clean, CI PASS | `https://github.com/rblake2320/selfconnect-enterprise.git` |
+| selfconnect-ecosystem | `C:\Users\techai\PKA testing\selfconnect-ecosystem` | `main` | `b8f066d` | clean before this doc update | `https://github.com/rblake2320/selfconnect-ecosystem.git` |
 | selfconnect-terminal | `C:\Users\techai\PKA testing\selfconnect-terminal` | `main` | `bcf86ca` | clean | `https://github.com/rblake2320/selfconnect-terminal.git` |
 | selfconnect-linux | `C:\Users\techai\PKA testing\selfconnect-linux` | `main` | `b2c1723` | clean | `https://github.com/rblake2320/selfconnect-linux.git` |
+| selfconnect-alt | `C:\Users\techai\PKA testing\selfconnect-alt` | `master` | `8a6a2c4` | clean, local evidence manifest pushed | `https://github.com/rblake2320/selfconnect-alt.git` |
+| bpc-protocol | `C:\Users\techai\PKA testing\bpc-protocol` | `master` | `63e8493` | clean, tests/build PASS | `https://github.com/rblake2320/bpc-protocol.git` |
+| tsk-protocol | `C:\Users\techai\PKA testing\tsk-protocol` | `master` | `3eecf2a` | clean, tests/build/typecheck PASS | `https://github.com/rblake2320/tsk-protocol.git` |
 | patent-portfolio | `C:\Users\techai\PKA testing\patent-portfolio` | `master` | `1687559` | clean | `https://github.com/rblake2320/patent-portfolio.git` |
 
 ## Repos Present But Dirty
@@ -24,9 +27,6 @@ before relying on them as source-of-truth.
 |---|---:|---:|---:|---|
 | `selfconnect_plugins` | `feature/browser-agent-hire` | `3c8ec183` | 64 | `https://github.com/rblake2320/pka-workspace.git` |
 | `selfconnect_audio` | `feature/browser-agent-hire` | `3c8ec183` | 64 | `https://github.com/rblake2320/pka-workspace.git` |
-| `selfconnect-alt` | `master` | `a0961b3` | 27 | `https://github.com/rblake2320/selfconnect-alt.git` |
-| `bpc-protocol` | `master` | `7eb2769` | 5 | `https://github.com/rblake2320/bpc-protocol.git` |
-| `tsk-protocol` | `master` | `35edeb4` | 27 | `https://github.com/rblake2320/tsk-protocol.git` |
 
 ## Expected But Not Found Locally
 
@@ -66,7 +66,7 @@ Boundary:
 
 ### SelfConnect Enterprise
 
-Current branch: `master` at `4287eb5`.
+Current branch: `master` at `bb83ae8`.
 
 Validated on this node and GitHub:
 
@@ -117,8 +117,9 @@ Boundary:
 4. Dirty repo cleanup:
    - Required evidence: each repo listed under "Repos Present But Dirty" has a
      clean or intentionally committed status.
-   - Current state: not addressed in this pass to avoid mixing cleanup with
-     proof work.
+   - Current state: `bpc-protocol`, `tsk-protocol`, and `selfconnect-alt` are
+     now clean and pushed. `selfconnect_plugins` and `selfconnect_audio` are
+     still broad `pka-workspace` views and require a dedicated cleanup pass.
 
 5. Ecosystem submodule/source-of-truth cleanup:
    - Required evidence: `selfconnect-ecosystem` accurately points to the current
@@ -127,6 +128,16 @@ Boundary:
    - Current state: status map added; broad restructuring deferred.
 
 ## Ecosystem Validation Notes
+
+Additional validation completed after the initial snapshot:
+
+- `bpc-protocol` at `63e8493`: `npm test` PASS and `npm run build` PASS.
+- `tsk-protocol` at `3eecf2a`: `npm test` PASS, `npm run build` PASS,
+  `npm run typecheck` PASS, `demo/e2e_browser_test.py` py_compile PASS, and
+  `demo/report.ts --format json` smoke PASS.
+- `selfconnect-alt` at `8a6a2c4`: raw root screenshot evidence was not pushed;
+  `docs/LOCAL_EVIDENCE_MANIFEST_2026-05-13.md` records filename, byte size,
+  and SHA-256 for local verification without public screenshot disclosure.
 
 Validation performed while adding this snapshot:
 
