@@ -19,6 +19,12 @@ Failing exit code for CI-style use:
 python scripts\readiness.py --json --fail-on-blockers
 ```
 
+Contract tests for the readiness checker:
+
+```powershell
+npm run test:readiness
+```
+
 ## Gates Covered
 
 - key ecosystem repo cleanliness and upstream sync;

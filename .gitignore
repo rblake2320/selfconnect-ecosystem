@@ -2,6 +2,8 @@ packages/selfconnect-py/**/__pycache__/
 packages/selfconnect-py/**/*.pyc
 scripts/__pycache__/
 scripts/**/*.pyc
+tests/__pycache__/
+tests/**/*.pyc
 .pytest_tmp/
 node_modules/
 **/node_modules/
