@@ -39,6 +39,12 @@ SIGNING_SECRETS = (
     "WINDOWS_SIGNING_CERT_PASSWORD",
 )
 
+ISSUES = {
+    "gemini": "https://github.com/rblake2320/selfconnect-ecosystem/issues/2",
+    "tpm": "https://github.com/rblake2320/selfconnect-ecosystem/issues/3",
+    "signing_secrets": "https://github.com/rblake2320/selfconnect-ecosystem/issues/4",
+}
+
 
 @dataclass
 class CmdResult:
@@ -248,6 +254,7 @@ def collect() -> dict[str, Any]:
         "pka_root": str(root),
         "ok": all(item.get("ok", False) for item in checks.values()),
         "checks": checks,
+        "issues": ISSUES,
     }
 
 
@@ -261,21 +268,21 @@ def emit_markdown(report: dict[str, Any]) -> str:
         "",
         "## Gates",
         "",
-        "| Gate | Status | Detail |",
-        "|---|---|---|",
+        "| Gate | Status | Detail | Tracker |",
+        "|---|---|---|---|",
     ]
-    lines.append(f"| Repos clean/synced | {'PASS' if checks['repos']['ok'] else 'ATTENTION'} | {sum(1 for r in checks['repos']['repos'] if r['ok'])}/{len(checks['repos']['repos'])} repos clean |")
+    lines.append(f"| Repos clean/synced | {'PASS' if checks['repos']['ok'] else 'ATTENTION'} | {sum(1 for r in checks['repos']['repos'] if r['ok'])}/{len(checks['repos']['repos'])} repos clean | n/a |")
     gemini = checks["gemini"]
-    lines.append(f"| Gemini non-interactive auth | {'PASS' if gemini['ok'] else 'BLOCKED'} | {gemini['status']}; version `{gemini.get('gemini_version')}` |")
+    lines.append(f"| Gemini non-interactive auth | {'PASS' if gemini['ok'] else 'BLOCKED'} | {gemini['status']}; version `{gemini.get('gemini_version')}` | {ISSUES['gemini']} |")
     tpm = checks["tpm"]
     tpm_detail = tpm.get("probe", {}).get("error", tpm.get("status"))
-    lines.append(f"| TPM platform attestation | {'PASS' if tpm['ok'] else 'NA'} | {tpm_detail} |")
+    lines.append(f"| TPM platform attestation | {'PASS' if tpm['ok'] else 'NA'} | {tpm_detail} | {ISSUES['tpm']} |")
     msi = checks["msi_workflow"]
     latest = msi.get("latest") or {}
-    lines.append(f"| MSI artifact workflow | {'PASS' if msi['ok'] else 'ATTENTION'} | run `{latest.get('databaseId', 'n/a')}` {latest.get('conclusion', msi.get('status'))} |")
+    lines.append(f"| MSI artifact workflow | {'PASS' if msi['ok'] else 'ATTENTION'} | run `{latest.get('databaseId', 'n/a')}` {latest.get('conclusion', msi.get('status'))} | n/a |")
     signing = checks["signing_secrets"]
     present = signing.get("present", {})
-    lines.append(f"| MSI code-signing secrets | {'PASS' if signing['ok'] else 'BLOCKED'} | {present} |")
+    lines.append(f"| MSI code-signing secrets | {'PASS' if signing['ok'] else 'BLOCKED'} | {present} | {ISSUES['signing_secrets']} |")
     lines.append("")
     return "\n".join(lines)
 
