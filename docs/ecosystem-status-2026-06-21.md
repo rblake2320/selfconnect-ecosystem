@@ -14,7 +14,7 @@ through multiple terminals or session transcripts.
 | selfconnect-terminal | `C:\Users\techai\PKA testing\selfconnect-terminal` | `main` | `bcf86ca` | clean | `https://github.com/rblake2320/selfconnect-terminal.git` |
 | selfconnect-linux | `C:\Users\techai\PKA testing\selfconnect-linux` | `main` | `b2c1723` | clean | `https://github.com/rblake2320/selfconnect-linux.git` |
 | selfconnect-alt | `C:\Users\techai\PKA testing\selfconnect-alt` | `master` | `8a6a2c4` | clean, local evidence manifest pushed | `https://github.com/rblake2320/selfconnect-alt.git` |
-| system-dashboard | `C:\Users\techai\system-dashboard` | `master` | `80bc839` | pushed, CI PASS, fleet guard + BPC/TSK governance controls, profile separation, BPC ownership + vault custody | `https://github.com/rblake2320/system-dashboard.git` |
+| system-dashboard | `C:\Users\techai\system-dashboard` | `master` | `d5cf74b` | pushed, CI PASS, fleet guard + BPC/TSK governance controls, profile separation, BPC ownership + vault custody, listener-PID health tracking | `https://github.com/rblake2320/system-dashboard.git` |
 | bpc-protocol | `C:\Users\techai\PKA testing\bpc-protocol` | `master` | `63e8493` | clean, tests/build PASS | `https://github.com/rblake2320/bpc-protocol.git` |
 | tsk-protocol | `C:\Users\techai\PKA testing\tsk-protocol` | `master` | `3eecf2a` | clean, tests/build/typecheck PASS | `https://github.com/rblake2320/tsk-protocol.git` |
 | patent-portfolio | `C:\Users\techai\PKA testing\patent-portfolio` | `master` | `1687559` | clean | `https://github.com/rblake2320/patent-portfolio.git` |
@@ -251,16 +251,18 @@ Additional validation completed after the initial snapshot:
   `fabric_v2_5agent_baseline_redacted.json`, and
   `baseline_5agent_fabric_v2_frame_mailbox.json`. The wheel includes the new
   modules, CLI entry points, and these artifacts.
-- `system-dashboard` at `80bc839`: GitHub Actions run `27917302733` PASS.
+- `system-dashboard` at `d5cf74b`: GitHub Actions run `27918249014` PASS.
   The dashboard now has a fleet panel and auto-halt guard API, evidence-bundle
   capture code, scoped dashboard API tokens, BPC pair generation/revoke/rotation
   controls, a metadata-covered BPC hash-chain audit log, BPC/TSK process health
   tracking, repo-aware BPC/TSK start paths, Normal/Enterprise/Government
   profile separation, local BPC pair ownership mapping, and an optional
   Windows Credential Manager/keyring-backed BPC credential custody path without
-  a raw-secret retrieval endpoint. Local dashboard tests passed with repo-local
-  temp storage: `138 passed`. The generated SQLite dashboard DB is no longer
-  tracked in Git.
+  a raw-secret retrieval endpoint. BPC/TSK health tracking now records the real
+  port-listener PID on `:3100`/`:3200` instead of the PowerShell launcher and
+  adopts already-running external listeners at dashboard startup. Local
+  dashboard tests passed with repo-local temp storage: `143 passed`. The
+  generated SQLite dashboard DB is no longer tracked in Git.
 - `selfconnect-enterprise` at `9d3f98d`: GitHub Actions MSI release workflow
   run `27897466199` PASS; artifact bundle `selfconnect-enterprise-msi`
   contains `selfconnect-enterprise-1.2.3.msi`, `msi-evidence.json`, and
