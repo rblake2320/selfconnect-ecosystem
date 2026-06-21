@@ -8,7 +8,7 @@ through multiple terminals or session transcripts.
 
 | Repo | Local path | Branch | Head | State | Remote |
 |---|---|---:|---:|---|---|
-| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `f58c831` | clean, Gemini 5 PASS, 10 blocked by quota | `https://github.com/rblake2320/selfconnect.git` |
+| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `d2777de` | clean, Gemini 5 PASS, 10 blocked by quota, Fabric V2 frame/mailbox PASS | `https://github.com/rblake2320/selfconnect.git` |
 | selfconnect-enterprise | `C:\Users\techai\PKA testing\selfconnect-enterprise` | `master` | `9d3f98d` | clean, CI PASS | `https://github.com/rblake2320/selfconnect-enterprise.git` |
 | selfconnect-ecosystem | `C:\Users\techai\PKA testing\selfconnect-ecosystem` | `main` | `81ebcad` | clean, readiness checker added | `https://github.com/rblake2320/selfconnect-ecosystem.git` |
 | selfconnect-terminal | `C:\Users\techai\PKA testing\selfconnect-terminal` | `main` | `bcf86ca` | clean | `https://github.com/rblake2320/selfconnect-terminal.git` |
@@ -40,13 +40,14 @@ before relying on them as source-of-truth.
 
 ### Core SelfConnect
 
-Current branch: `test/win32-hardening-v1` at `f58c831`.
+Current branch: `test/win32-hardening-v1` at `d2777de`.
 
 Validated on this node:
 
-- Full pytest: `462 passed, 9 skipped`
+- Full pytest: `470 passed, 9 skipped`
 - Scoped package ruff gate: PASS
 - `py_compile` for package entry modules: PASS
+- Fabric V2 focused tests: `19 passed`
 - Targeted Win32 package tests: `35 passed`
 - Python package build: `selfconnect-0.10.4` sdist/wheel PASS
 
@@ -62,6 +63,13 @@ Real-agent proof already recorded in core docs:
   `SC_REAL5_20260621_073044`
 - Exact-line ACK hardening: PASS
 - Logical/adversarial Fabric suites: PASS
+- Fabric V2 frame/mailbox slice: PASS
+  - `sc_fabric_v2.py`
+  - `selfconnect-fabric selftest`
+  - real Windows named-pipe ACK selftest: `0.797 ms`
+  - `selfconnect-bench --transport fabric_v2_frame_mailbox --agents 5`
+  - V2 transport/governance p99: `0.152 ms`
+  - model calls per known task: `0.0`
 
 Boundary:
 
@@ -69,6 +77,9 @@ Boundary:
   repo includes legacy scratch scripts and vision-server experiments with
   pre-existing lint debt. Use the scoped package gate until those folders are
   either excluded or cleaned.
+- Fabric V2 now proves frame/mailbox/security semantics and a real Windows
+  named-pipe transport species. Production IOCP host service is still the next
+  controllable build target, not yet complete.
 
 ### SelfConnect Enterprise
 
@@ -164,7 +175,7 @@ Additional validation completed after the initial snapshot:
   - MSI release workflow: PASS, run `27897466199`
   - MSI code-signing secrets: BLOCKED, missing
     `WINDOWS_SIGNING_CERT_BASE64` and `WINDOWS_SIGNING_CERT_PASSWORD`
-- `selfconnect` at `f58c831`: freeze-check PASS, adversarial suite PASS
+- `selfconnect` at `d2777de`: freeze-check PASS, adversarial suite PASS
   (`adversarial_20260621_023543`), mesh event chain PASS at head
   `66a303516a8bf39576ffe679ed6747e8b8802ab99a240cdc2e8f8d88cbb36bd1`,
   scoped Win32/package tests `35 passed`, scoped ruff PASS, py_compile PASS.
@@ -182,6 +193,14 @@ Additional validation completed after the initial snapshot:
   (`SC_REAL5_20260621_064240`). The 10-Gemini rung is blocked by provider quota
   (`SC_REAL5_20260621_073044`), tracked in issue #5. No secret values are
   tracked.
+- `selfconnect` Fabric V2 slice at `d2777de`: `sc_fabric_v2.py` added with
+  session-derived HMAC frames, receiver binding, payload hashes, replay
+  rejection, deadline rejection, bounded mailbox backpressure, and
+  `selfconnect-fabric` CLI. Redacted artifacts are tracked in core:
+  `fabric_v2_selftest_20260621_073951_redacted.json`,
+  `fabric_v2_5agent_baseline_redacted.json`, and
+  `baseline_5agent_fabric_v2_frame_mailbox.json`. The wheel includes the new
+  module, CLI entry point, and these artifacts.
 - `selfconnect-enterprise` at `9d3f98d`: GitHub Actions MSI release workflow
   run `27897466199` PASS; artifact bundle `selfconnect-enterprise-msi`
   contains `selfconnect-enterprise-1.2.3.msi`, `msi-evidence.json`, and
