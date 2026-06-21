@@ -8,7 +8,7 @@ through multiple terminals or session transcripts.
 
 | Repo | Local path | Branch | Head | State | Remote |
 |---|---|---:|---:|---|---|
-| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `3614bee` | clean, Gemini API-key real-agent PASS | `https://github.com/rblake2320/selfconnect.git` |
+| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `f58c831` | clean, Gemini 5 PASS, 10 blocked by quota | `https://github.com/rblake2320/selfconnect.git` |
 | selfconnect-enterprise | `C:\Users\techai\PKA testing\selfconnect-enterprise` | `master` | `9d3f98d` | clean, CI PASS | `https://github.com/rblake2320/selfconnect-enterprise.git` |
 | selfconnect-ecosystem | `C:\Users\techai\PKA testing\selfconnect-ecosystem` | `main` | `81ebcad` | clean, readiness checker added | `https://github.com/rblake2320/selfconnect-ecosystem.git` |
 | selfconnect-terminal | `C:\Users\techai\PKA testing\selfconnect-terminal` | `main` | `bcf86ca` | clean | `https://github.com/rblake2320/selfconnect-terminal.git` |
@@ -40,11 +40,11 @@ before relying on them as source-of-truth.
 
 ### Core SelfConnect
 
-Current branch: `test/win32-hardening-v1` at `3614bee`.
+Current branch: `test/win32-hardening-v1` at `f58c831`.
 
 Validated on this node:
 
-- Full pytest: `456 passed, 9 skipped`
+- Full pytest: `462 passed, 9 skipped`
 - Scoped package ruff gate: PASS
 - `py_compile` for package entry modules: PASS
 - Targeted Win32 package tests: `35 passed`
@@ -57,6 +57,9 @@ Real-agent proof already recorded in core docs:
 - Gemini API-key mode preflight: PASS, `SC_PROVIDER_PREFLIGHT_20260621_062323`
 - 1 real visible Gemini terminal: PASS, `SC_REAL5_20260621_062543`
 - 3-provider real visible mixed run: PASS, `SC_REAL5_20260621_062940`
+- 5 real visible Gemini terminals: PASS, `SC_REAL5_20260621_064240`
+- 10 real visible Gemini terminals: BLOCKED by provider quota,
+  `SC_REAL5_20260621_073044`
 - Exact-line ACK hardening: PASS
 - Logical/adversarial Fabric suites: PASS
 
@@ -119,19 +122,27 @@ Boundary:
    - Current blocker: this host returns `0x80090026`.
    - Tracker: https://github.com/rblake2320/selfconnect-ecosystem/issues/3
 
-3. Release installer automation:
+3. Gemini 10/15/20 provider quota:
+   - Required evidence: 10/15/20 Gemini-included real-agent rungs complete with
+     exact ACKs and no provider quota errors.
+   - Current blocker: supplied Gemini API key hit
+     `generate_content_free_tier_requests` quota, limit `20`, at the 10-agent
+     rung.
+   - Tracker: https://github.com/rblake2320/selfconnect-ecosystem/issues/5
+
+4. Release installer automation:
    - Required evidence: CI/release runner builds, signs, and publishes the MSI.
    - Current state: local WiX v4 MSI build passes and SHA-256 is recorded.
    - Tracker: https://github.com/rblake2320/selfconnect-ecosystem/issues/4
 
-4. Dirty repo cleanup:
+5. Dirty repo cleanup:
    - Required evidence: each repo listed under "Repos Present But Dirty" has a
      clean or intentionally committed status.
    - Current state: `bpc-protocol`, `tsk-protocol`, and `selfconnect-alt` are
      now clean and pushed. `selfconnect_plugins` and `selfconnect_audio` are
      still broad `pka-workspace` views and require a dedicated cleanup pass.
 
-5. Ecosystem submodule/source-of-truth cleanup:
+6. Ecosystem submodule/source-of-truth cleanup:
    - Required evidence: `selfconnect-ecosystem` accurately points to the current
      intended repos/commits and does not track build dependencies such as
      `node_modules`.
@@ -153,7 +164,7 @@ Additional validation completed after the initial snapshot:
   - MSI release workflow: PASS, run `27897466199`
   - MSI code-signing secrets: BLOCKED, missing
     `WINDOWS_SIGNING_CERT_BASE64` and `WINDOWS_SIGNING_CERT_PASSWORD`
-- `selfconnect` at `3614bee`: freeze-check PASS, adversarial suite PASS
+- `selfconnect` at `f58c831`: freeze-check PASS, adversarial suite PASS
   (`adversarial_20260621_023543`), mesh event chain PASS at head
   `66a303516a8bf39576ffe679ed6747e8b8802ab99a240cdc2e8f8d88cbb36bd1`,
   scoped Win32/package tests `35 passed`, scoped ruff PASS, py_compile PASS.
@@ -167,7 +178,10 @@ Additional validation completed after the initial snapshot:
   `gemini-api-key` mode passed in preflight
   (`SC_PROVIDER_PREFLIGHT_20260621_062323`), passed one real visible Gemini ACK
   (`SC_REAL5_20260621_062543`), and passed one real mixed Codex+Claude+Gemini
-  ACK run (`SC_REAL5_20260621_062940`). No secret values are tracked.
+  ACK run (`SC_REAL5_20260621_062940`). The 5-Gemini rung passed
+  (`SC_REAL5_20260621_064240`). The 10-Gemini rung is blocked by provider quota
+  (`SC_REAL5_20260621_073044`), tracked in issue #5. No secret values are
+  tracked.
 - `selfconnect-enterprise` at `9d3f98d`: GitHub Actions MSI release workflow
   run `27897466199` PASS; artifact bundle `selfconnect-enterprise-msi`
   contains `selfconnect-enterprise-1.2.3.msi`, `msi-evidence.json`, and

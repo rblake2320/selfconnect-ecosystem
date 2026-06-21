@@ -46,6 +46,9 @@ As of 2026-06-21, the executable checks are expected to report:
 - Gemini persistent readiness blocked until `GEMINI_API_KEY` or Google ADC is
   configured outside the repo. Core ephemeral API-key tests have already passed
   Gemini preflight and real visible-window ACK runs;
+- Gemini 10/15/20 scale blocked until the API key/project has enough Gemini
+  request quota; the 5-Gemini rung passed, but the 10-Gemini rung hit provider
+  quota;
 - TPM platform attestation `NA` on this host with `NCryptCreateClaim ->
   0x80090026`;
 - MSI signing blocked until `WINDOWS_SIGNING_CERT_BASE64` and
@@ -60,5 +63,6 @@ The current external blockers are tracked in the private ecosystem repo:
 | Gate | Issue |
 |---|---|
 | Gemini non-interactive auth | https://github.com/rblake2320/selfconnect-ecosystem/issues/2 |
+| Gemini 10/15/20 scale quota | https://github.com/rblake2320/selfconnect-ecosystem/issues/5 |
 | TPM platform attestation PASS artifact | https://github.com/rblake2320/selfconnect-ecosystem/issues/3 |
 | Windows MSI signing secrets and signed artifact | https://github.com/rblake2320/selfconnect-ecosystem/issues/4 |
