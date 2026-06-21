@@ -126,8 +126,10 @@ Boundary:
   for a hardware claim PASS artifact.
 - Core Gemini real-agent tests pass when an API key is supplied in the process
   environment and Gemini CLI is temporarily switched to `gemini-api-key` mode.
-  Persistent enterprise readiness still requires installing key/ADC
-  configuration outside the repository.
+  Persistent enterprise readiness still requires installing a non-OAuth key,
+  ADC, or Gemini Enterprise Agent Platform configuration outside the
+  repository. Do not rely on `oauth-personal` for scale testing after the
+  2026-06-18 Gemini CLI personal/free/Pro routing shutdown.
 - MSI is built locally and hash-recorded. Release automation still needs signing
   and published release artifacts.
 
@@ -135,17 +137,22 @@ Boundary:
 
 1. Gemini persistent workstation readiness:
    - Required evidence: readiness checker sees a persistent User/Machine
-     environment key or Google ADC outside the repository.
+     environment key, Google ADC, or Gemini Enterprise Agent Platform project
+     configuration outside the repository.
    - Current state: ephemeral process-scoped key tests passed in core, including
      one real Gemini visible-window ACK and one Codex+Claude+Gemini real mixed
-     ACK run. The readiness checker should still report blocked if no persistent
-     key/ADC is installed.
+     ACK run. Personal/free/Pro OAuth routing for Gemini CLI stopped serving
+     requests on 2026-06-18. The readiness checker should still report blocked
+     if no persistent non-OAuth key/ADC/Cloud configuration is installed.
    - Tracker: https://github.com/rblake2320/selfconnect-ecosystem/issues/2
 
 2. TPM PASS artifact:
    - Required evidence: `enterprise.tpm_attestation.tpm_probe()` returns
      `supported=true`, nonzero claim blob, and verification succeeds.
-   - Current blocker: this host returns `0x80090026`.
+   - Current blocker: this host returns `0x80090026`, meaning the local
+     firmware/provider path does not support the requested platform claim.
+     Fastest clean PASS path is a supported discrete TPM or a distinct Azure
+     Attestation proof path documented separately from the NCrypt embodiment.
    - Tracker: https://github.com/rblake2320/selfconnect-ecosystem/issues/3
 
 3. Gemini 10/15/20 provider quota:
@@ -153,12 +160,16 @@ Boundary:
      exact ACKs and no provider quota errors.
    - Current blocker: supplied Gemini API key hit
      `generate_content_free_tier_requests` quota, limit `20`, at the 10-agent
-     rung.
+     rung. Use a paid Gemini API / Gemini Enterprise Agent Platform project
+     with sufficient quota before rerunning.
    - Tracker: https://github.com/rblake2320/selfconnect-ecosystem/issues/5
 
 4. Release installer automation:
    - Required evidence: CI/release runner builds, signs, and publishes the MSI.
    - Current state: local WiX v4 MSI build passes and SHA-256 is recorded.
+     Preferred production signing path is Azure Artifact Signing/Trusted
+     Signing; SignPath Foundation is a possible OSS fallback if the publisher
+     name tradeoff is acceptable.
    - Tracker: https://github.com/rblake2320/selfconnect-ecosystem/issues/4
 
 5. Dirty repo cleanup:
