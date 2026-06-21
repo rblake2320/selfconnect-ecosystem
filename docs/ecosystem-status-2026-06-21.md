@@ -8,7 +8,7 @@ through multiple terminals or session transcripts.
 
 | Repo | Local path | Branch | Head | State | Remote |
 |---|---|---:|---:|---|---|
-| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `d2777de` | clean, Gemini 5 PASS, 10 blocked by quota, Fabric V2 frame/mailbox PASS | `https://github.com/rblake2320/selfconnect.git` |
+| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `01b241b` | clean, Gemini 5 PASS, 10 blocked by quota, Fabric V2 frame/mailbox PASS | `https://github.com/rblake2320/selfconnect.git` |
 | selfconnect-enterprise | `C:\Users\techai\PKA testing\selfconnect-enterprise` | `master` | `9d3f98d` | clean, CI PASS | `https://github.com/rblake2320/selfconnect-enterprise.git` |
 | selfconnect-ecosystem | `C:\Users\techai\PKA testing\selfconnect-ecosystem` | `main` | `81ebcad` | clean, readiness checker added | `https://github.com/rblake2320/selfconnect-ecosystem.git` |
 | selfconnect-terminal | `C:\Users\techai\PKA testing\selfconnect-terminal` | `main` | `bcf86ca` | clean | `https://github.com/rblake2320/selfconnect-terminal.git` |
@@ -40,7 +40,7 @@ before relying on them as source-of-truth.
 
 ### Core SelfConnect
 
-Current branch: `test/win32-hardening-v1` at `d2777de`.
+Current branch: `test/win32-hardening-v1` at `01b241b`.
 
 Validated on this node:
 
@@ -79,7 +79,8 @@ Boundary:
   either excluded or cleaned.
 - Fabric V2 now proves frame/mailbox/security semantics and a real Windows
   named-pipe transport species. Production IOCP host service is still the next
-  controllable build target, not yet complete.
+  controllable build target, not yet complete. Tracker:
+  https://github.com/rblake2320/selfconnect/issues/7
 
 ### SelfConnect Enterprise
 
@@ -175,7 +176,7 @@ Additional validation completed after the initial snapshot:
   - MSI release workflow: PASS, run `27897466199`
   - MSI code-signing secrets: BLOCKED, missing
     `WINDOWS_SIGNING_CERT_BASE64` and `WINDOWS_SIGNING_CERT_PASSWORD`
-- `selfconnect` at `d2777de`: freeze-check PASS, adversarial suite PASS
+- `selfconnect` at `01b241b`: freeze-check PASS, adversarial suite PASS
   (`adversarial_20260621_023543`), mesh event chain PASS at head
   `66a303516a8bf39576ffe679ed6747e8b8802ab99a240cdc2e8f8d88cbb36bd1`,
   scoped Win32/package tests `35 passed`, scoped ruff PASS, py_compile PASS.
@@ -193,7 +194,7 @@ Additional validation completed after the initial snapshot:
   (`SC_REAL5_20260621_064240`). The 10-Gemini rung is blocked by provider quota
   (`SC_REAL5_20260621_073044`), tracked in issue #5. No secret values are
   tracked.
-- `selfconnect` Fabric V2 slice at `d2777de`: `sc_fabric_v2.py` added with
+- `selfconnect` Fabric V2 slice at `01b241b`: `sc_fabric_v2.py` added with
   session-derived HMAC frames, receiver binding, payload hashes, replay
   rejection, deadline rejection, bounded mailbox backpressure, and
   `selfconnect-fabric` CLI. Redacted artifacts are tracked in core:
