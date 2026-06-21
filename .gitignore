@@ -1,2 +1,5 @@
 packages/selfconnect-py/**/__pycache__/
 packages/selfconnect-py/**/*.pyc
+.pytest_tmp/
+node_modules/
+**/node_modules/

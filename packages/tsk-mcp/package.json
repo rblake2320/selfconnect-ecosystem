@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
+    "pretest": "pnpm --filter @selfconnect/tsk-client build",
     "test": "jest --testPathPattern=tests/"
   },
   "keywords": [
