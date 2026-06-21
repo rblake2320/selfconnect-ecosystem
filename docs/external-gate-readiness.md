@@ -32,7 +32,7 @@ treated as CI failures unless `--fail-on-blockers` is used intentionally.
 ## Gates Covered
 
 - key ecosystem repo cleanliness and upstream sync;
-- Gemini CLI presence plus non-interactive auth readiness;
+- Gemini CLI presence plus persistent non-interactive auth readiness;
 - Gemini auth variables in Process, User, and Machine environment scopes,
   without printing secret values;
 - TPM platform attestation readiness through `enterprise.tpm_attestation`;
@@ -43,7 +43,9 @@ treated as CI failures unless `--fail-on-blockers` is used intentionally.
 
 As of 2026-06-21, the executable checks are expected to report:
 
-- Gemini blocked until `GEMINI_API_KEY` or Google ADC is configured;
+- Gemini persistent readiness blocked until `GEMINI_API_KEY` or Google ADC is
+  configured outside the repo. Core ephemeral API-key tests have already passed
+  Gemini preflight and real visible-window ACK runs;
 - TPM platform attestation `NA` on this host with `NCryptCreateClaim ->
   0x80090026`;
 - MSI signing blocked until `WINDOWS_SIGNING_CERT_BASE64` and

@@ -8,7 +8,7 @@ through multiple terminals or session transcripts.
 
 | Repo | Local path | Branch | Head | State | Remote |
 |---|---|---:|---:|---|---|
-| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `337db9b` | clean, Gemini env fallback hardened | `https://github.com/rblake2320/selfconnect.git` |
+| selfconnect | `C:\Users\techai\PKA testing\selfconnect` | `test/win32-hardening-v1` | `3614bee` | clean, Gemini API-key real-agent PASS | `https://github.com/rblake2320/selfconnect.git` |
 | selfconnect-enterprise | `C:\Users\techai\PKA testing\selfconnect-enterprise` | `master` | `9d3f98d` | clean, CI PASS | `https://github.com/rblake2320/selfconnect-enterprise.git` |
 | selfconnect-ecosystem | `C:\Users\techai\PKA testing\selfconnect-ecosystem` | `main` | `81ebcad` | clean, readiness checker added | `https://github.com/rblake2320/selfconnect-ecosystem.git` |
 | selfconnect-terminal | `C:\Users\techai\PKA testing\selfconnect-terminal` | `main` | `bcf86ca` | clean | `https://github.com/rblake2320/selfconnect-terminal.git` |
@@ -40,11 +40,11 @@ before relying on them as source-of-truth.
 
 ### Core SelfConnect
 
-Current branch: `test/win32-hardening-v1` at `ac2c60e`.
+Current branch: `test/win32-hardening-v1` at `3614bee`.
 
 Validated on this node:
 
-- Full pytest: `434 passed, 28 skipped`
+- Full pytest: `456 passed, 9 skipped`
 - Scoped package ruff gate: PASS
 - `py_compile` for package entry modules: PASS
 - Targeted Win32 package tests: `35 passed`
@@ -54,6 +54,9 @@ Real-agent proof already recorded in core docs:
 
 - 20 real Codex terminals: PASS
 - 20 real mixed Codex/Claude terminals: PASS
+- Gemini API-key mode preflight: PASS, `SC_PROVIDER_PREFLIGHT_20260621_062323`
+- 1 real visible Gemini terminal: PASS, `SC_REAL5_20260621_062543`
+- 3-provider real visible mixed run: PASS, `SC_REAL5_20260621_062940`
 - Exact-line ACK hardening: PASS
 - Logical/adversarial Fabric suites: PASS
 
@@ -92,18 +95,22 @@ Boundary:
 - TPM returns clean NA on this machine with `NCryptCreateClaim -> 0x80090026`.
   This is not a fake PASS. A separate TPM-provisioned machine is still needed
   for a hardware claim PASS artifact.
-- Gemini real-agent tests remain blocked by provider authentication, not by
-  SelfConnect transport.
+- Core Gemini real-agent tests pass when an API key is supplied in the process
+  environment and Gemini CLI is temporarily switched to `gemini-api-key` mode.
+  Persistent enterprise readiness still requires installing key/ADC
+  configuration outside the repository.
 - MSI is built locally and hash-recorded. Release automation still needs signing
   and published release artifacts.
 
 ## Remaining Gates
 
-1. Gemini real-agent participation:
-   - Required evidence: Gemini CLI starts non-interactively and returns a known
-     nonce through SelfConnect.
-   - Current blocker: Gemini CLI requires interactive login, `GEMINI_API_KEY`,
-     or Google Application Default Credentials.
+1. Gemini persistent workstation readiness:
+   - Required evidence: readiness checker sees a persistent User/Machine
+     environment key or Google ADC outside the repository.
+   - Current state: ephemeral process-scoped key tests passed in core, including
+     one real Gemini visible-window ACK and one Codex+Claude+Gemini real mixed
+     ACK run. The readiness checker should still report blocked if no persistent
+     key/ADC is installed.
    - Tracker: https://github.com/rblake2320/selfconnect-ecosystem/issues/2
 
 2. TPM PASS artifact:
@@ -146,7 +153,7 @@ Additional validation completed after the initial snapshot:
   - MSI release workflow: PASS, run `27897466199`
   - MSI code-signing secrets: BLOCKED, missing
     `WINDOWS_SIGNING_CERT_BASE64` and `WINDOWS_SIGNING_CERT_PASSWORD`
-- `selfconnect` at `337db9b`: freeze-check PASS, adversarial suite PASS
+- `selfconnect` at `3614bee`: freeze-check PASS, adversarial suite PASS
   (`adversarial_20260621_023543`), mesh event chain PASS at head
   `66a303516a8bf39576ffe679ed6747e8b8802ab99a240cdc2e8f8d88cbb36bd1`,
   scoped Win32/package tests `35 passed`, scoped ruff PASS, py_compile PASS.
@@ -154,9 +161,13 @@ Additional validation completed after the initial snapshot:
   Gemini recheck `SC_PROVIDER_PREFLIGHT_20260621_061132` still failed as
   `provider_auth_required` because the key was not visible to the test process.
   Runner hardening now pulls Gemini auth variables from Process, User, or
-  Machine env at runtime without printing secrets; recheck
-  `SC_PROVIDER_PREFLIGHT_20260621_061439` still failed because all three env
-  scopes were empty for the key/ADC variables.
+  Machine env at runtime without printing secrets. The user-supplied ephemeral
+  key proved the remaining CLI selector issue: env-only still failed under
+  `oauth-personal` (`SC_PROVIDER_PREFLIGHT_20260621_061757`), while temporary
+  `gemini-api-key` mode passed in preflight
+  (`SC_PROVIDER_PREFLIGHT_20260621_062323`), passed one real visible Gemini ACK
+  (`SC_REAL5_20260621_062543`), and passed one real mixed Codex+Claude+Gemini
+  ACK run (`SC_REAL5_20260621_062940`). No secret values are tracked.
 - `selfconnect-enterprise` at `9d3f98d`: GitHub Actions MSI release workflow
   run `27897466199` PASS; artifact bundle `selfconnect-enterprise-msi`
   contains `selfconnect-enterprise-1.2.3.msi`, `msi-evidence.json`, and
