@@ -22,6 +22,7 @@ This is the **meta/umbrella repository** for the entire SelfConnect project. It 
 | `provenance/` | Cryptographic provenance tracking | Chain-of-custody for agent actions |
 | `agent-wire/` | Dispatch gateway — deny-by-default policy, hash-chained ledger | All inter-agent message routing |
 | `agent-status/` | Token burn daemon — JSONL tailing, USD limits, PreToolUse hook | Budget enforcement, combined cross-session ceiling, fleet monitoring |
+| `selfconnect-store/` | SQLite event store — session/workflow/compliance queries, EU AI Act bundle | Operational queries, compliance evidence, cross-session analytics |
 | `bpc/` | Bound Pair Credentials — hardware-bound, replay-proof auth | Agent identity in enterprise/federal tiers |
 | `tsk/` | Tumbler-Style Rotating Segment Keys — structural key secrecy | Key rotation in federal/enterprise tiers |
 | `demo/` | Demo kit | Demos and examples |

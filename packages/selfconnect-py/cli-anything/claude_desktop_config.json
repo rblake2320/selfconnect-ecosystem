@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "selfconnect": {
+      "command": "selfconnect-mcp",
+      "env": {
+        "SELFCONNECT_TSK_KEY": "sc-tsk-YOUR-KEY-HERE"
+      }
+    }
+  }
+}

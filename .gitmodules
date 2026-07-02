@@ -43,3 +43,12 @@
 [submodule "tsk"]
 	path = tsk
 	url = https://github.com/rblake2320/tsk-protocol
+[submodule "selfconnect-store"]
+	path = selfconnect-store
+	url = https://github.com/rblake2320/selfconnect-store.git
+[submodule "harness"]
+	path = harness
+	url = https://github.com/rblake2320/selfconnect-frontier-harness
+[submodule "linux"]
+	path = linux
+	url = https://github.com/rblake2320/selfconnect-linux

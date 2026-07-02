@@ -30,6 +30,7 @@ selfconnect-ecosystem/
 ├── provenance/     → selfconnect-provenance (chain-of-custody)
 ├── agent-wire/     → agent-wire             (inter-agent dispatch gateway)
 ├── agent-status/   → agent-status           (token burn monitor + budget enforcement)
+├── selfconnect-store/ → selfconnect-store   (SQLite event store — session/workflow/compliance queries)
 ├── bpc/            → bpc-protocol           (hardware-bound credential protocol)
 ├── tsk/            → tsk-protocol           (rotating segment key protocol)
 ├── demo/           → SelfConnect-Demo-kit-  (examples and demos)
@@ -42,6 +43,8 @@ selfconnect-ecosystem/
 
 ```
 ┌──────────────────────────────────────────┐
+│  selfconnect-store                       │  Observability & compliance queries
+├──────────────────────────────────────────┤
 │  federal / accord                        │  Compliance & evidence
 ├──────────────────────────────────────────┤
 │  enterprise                              │  Governance, policy, audit
@@ -73,6 +76,8 @@ send_string(win, "Hello from another agent\r", char_delay=0.02)
 ```
 
 **If you want to enforce policy on agent messages:** look at `agent-wire/`.
+
+**If you want to query session history, token costs, or export a compliance bundle:** look at `selfconnect-store/`.
 
 **If you're deploying in an enterprise or government context:** start in `enterprise/` or `federal/`.
 
