@@ -41,6 +41,10 @@
 
 ## Repos in This Ecosystem
 
+Note: this table reflects the historical submodule layout. For the current owner-declared product boundary and the adjacent/non-core repo list, use [Ecosystem Scope And Workspaces](docs/ecosystem-scope-and-workspaces.md) as the source of truth.
+
+Current status snapshot: [`docs/ecosystem-status-2026-06-21.md`](docs/ecosystem-status-2026-06-21.md)
+
 | Folder | Repo | Description |
 |--------|------|-------------|
 | `harness/` | [selfconnect-frontier-harness](https://github.com/rblake2320/selfconnect-frontier-harness) | Execution kernel — model-agnostic, hot-swappable. Channel × Tier × Model are independent dials; mid-task switches produce no restart, no context loss |
@@ -156,6 +160,9 @@ See `docs/` for cross-repo design documents:
 - [Architecture](docs/architecture.md)
 - [Mesh Setup](docs/mesh-setup.md)
 - [Security Model](docs/security-model.md)
+- [Agent Mesh Coordination](docs/agent-mesh-coordination.md)
+- [Ecosystem Scope And Workspaces](docs/ecosystem-scope-and-workspaces.md)
+- [Competitive And Patent Watch](docs/competitive-patent-watch.md)
 
 ---
 

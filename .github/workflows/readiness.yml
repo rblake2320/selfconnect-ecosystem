@@ -1,0 +1,30 @@
+name: Readiness Checker
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  readiness:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile readiness checker
+        run: python -m py_compile scripts\readiness.py tests\test_readiness.py
+
+      - name: Run readiness checker contract tests
+        run: npm run test:readiness
+
+      - name: Smoke-run readiness report
+        run: python scripts\readiness.py --markdown

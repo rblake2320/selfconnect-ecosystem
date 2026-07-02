@@ -1,0 +1,40 @@
+{
+  "name": "@selfconnect/tsk-client",
+  "version": "1.0.0",
+  "description": "SelfConnect TSK (Token Safety Key) client — govern any AI agent in 3 lines of code",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node ./node_modules/tsup/dist/cli-default.js src/index.ts --format cjs,esm --dts --clean",
+    "test": "node ./node_modules/jest/bin/jest.js tests/",
+    "test:live": "node -e \"process.env.TSK_LIVE='1'; process.argv.push('tests/'); require('./node_modules/jest/bin/jest.js')\"",
+    "prepublishOnly": "pnpm build"
+  },
+  "keywords": [
+    "ai", "agent", "governance", "tsk", "selfconnect",
+    "budget", "safety", "compliance", "eu-ai-act"
+  ],
+  "author": "SelfConnect.ai",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rblake2320/selfconnect-ecosystem.git",
+    "directory": "packages/tsk-client"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0",
+    "ts-jest": "^29.0.0"
+  }
+}
