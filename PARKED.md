@@ -5,9 +5,12 @@ not mistaken for oversight:
 
 - **Existing PyPI 1.1.0 replacement/yank**: source and artifact gates now cover
   future Python package claims, but repository code cannot publish or yank a
-  public package. Owner action remains: configure the protected `pypi`
-  environment and matching PyPI Trusted Publisher, publish verified 1.1.1,
-  then yank 1.1.0 with a bounded reason. Do not delete the historical release.
+  public package. The GitHub `pypi` environment and `selfconnect-py-v*` tag
+  policy are configured. Owner action remains: register the matching PyPI
+  Trusted Publisher, set the intentionally absent activation variable, publish
+  verified 1.1.1, then yank 1.1.0 with a bounded reason. The current GitHub
+  plan does not support required-reviewer or wait-timer environment rules. Do
+  not delete the historical release.
 - **README/tag-message scanning**: READMEs are already governed by the
   Enterprise control catalog; duplicating here would create two sources of
   truth. Tag messages are low-visibility; revisit if audits find rot there.

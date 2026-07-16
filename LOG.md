@@ -1,5 +1,15 @@
 # Change Log
 
+## 2026-07-16 (PyPI environment configuration)
+
+- Created the GitHub `pypi` environment and restricted deployments to
+  `selfconnect-py-v*` tags.
+- Left `PYPI_TRUSTED_PUBLISHING_ENABLED` absent, so the release workflow remains
+  fail-closed until the matching publisher is registered in PyPI.
+- GitHub returned HTTP 422 when required-reviewer and wait-timer rules were
+  requested because the current plan does not support those environment
+  controls. Corrected the runbook rather than claiming they are active.
+
 ## 2026-07-16 (Python SDK 1.1.1 claim and release hardening)
 
 - Corrected ecosystem and Python SDK public language so local Win32 transport,
