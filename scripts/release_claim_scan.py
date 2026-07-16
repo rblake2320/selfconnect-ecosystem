@@ -195,17 +195,24 @@ def scan_release(release: dict, repo: str = "?", allowlist: dict | None = None) 
 
 def fetch_releases(repo: str) -> list[dict]:
     out = subprocess.run(
-        ["gh", "api", f"repos/{repo}/releases"],
+        # --paginate: the plain endpoint returns only the first page (30);
+        # older releases must not evade the gate. --slurp wraps pages in an
+        # outer array which we flatten after a strict shape check.
+        ["gh", "api", "--paginate", "--slurp", f"repos/{repo}/releases?per_page=100"],
         # encoding pinned: Windows locale decode (cp1252) silently mangles
         # unicode in bodies, which changes the canonical hash cross-platform.
         # errors=strict fails closed on any undecodable byte (exit 2 via the
         # caller's exception path) instead of hashing corrupted text.
         capture_output=True, text=True, encoding="utf-8", errors="strict",
-        timeout=60,
+        timeout=120,
     )
     if out.returncode != 0:
         raise RuntimeError(f"gh api failed for {repo}: {out.stderr.strip()[:200]}")
-    return json.loads(out.stdout)
+    pages = json.loads(out.stdout)
+    if not isinstance(pages, list) or not all(isinstance(p, list) for p in pages):
+        # fail closed on unexpected pagination shape rather than scanning a subset
+        raise RuntimeError(f"unexpected paginated response shape for {repo}")
+    return [release for page in pages for release in page]
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -173,7 +173,7 @@ def test_fetch_releases_production_decode_params():
     fake_body = "Security Release — em dash — body"
     fake = subprocess.CompletedProcess(
         args=["gh"], returncode=0,
-        stdout=json.dumps([{"tag_name": "v1", "name": "v1", "body": fake_body}]),
+        stdout=json.dumps([[{"tag_name": "v1", "name": "v1", "body": fake_body}]]),
         stderr="")
     with patch("release_claim_scan.subprocess.run", return_value=fake) as mock_run:
         releases = fetch_releases("owner/repo")
@@ -181,7 +181,34 @@ def test_fetch_releases_production_decode_params():
     assert kwargs.get("encoding") == "utf-8"
     assert kwargs.get("errors") == "strict"
     assert kwargs.get("text") is True
+    argv = mock_run.call_args.args[0]
+    assert "--paginate" in argv and "--slurp" in argv and "per_page=100" in argv[-1]
     assert releases[0]["body"] == fake_body  # non-ASCII survives the path
+
+
+def test_fetch_releases_flattens_multiple_pages():
+    from unittest.mock import patch
+    from release_claim_scan import fetch_releases
+    page1 = [{"tag_name": f"v{i}", "name": f"v{i}", "body": ""} for i in range(100)]
+    page2 = [{"tag_name": "v100", "name": "v100", "body": ""}]
+    fake = subprocess.CompletedProcess(args=["gh"], returncode=0,
+                                       stdout=json.dumps([page1, page2]), stderr="")
+    with patch("release_claim_scan.subprocess.run", return_value=fake):
+        releases = fetch_releases("owner/repo")
+    assert len(releases) == 101
+    assert releases[-1]["tag_name"] == "v100"
+
+
+def test_fetch_releases_malformed_page_fails_closed():
+    import pytest
+    from unittest.mock import patch
+    from release_claim_scan import fetch_releases
+    for bad in ({"not": "a page list"}, [{"tag_name": "v1"}, "not-a-page"]):
+        fake = subprocess.CompletedProcess(args=["gh"], returncode=0,
+                                           stdout=json.dumps(bad), stderr="")
+        with patch("release_claim_scan.subprocess.run", return_value=fake):
+            with pytest.raises(RuntimeError, match="paginated"):
+                fetch_releases("owner/repo")
 
 
 def test_sha_mismatch_reason_has_safe_diagnostics():

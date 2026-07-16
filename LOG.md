@@ -27,7 +27,7 @@
   Motivated by the 2026-07-16 release-claim audit: masters were cleaned but
   the pinned releases (BPC v0.2.0, Enterprise v1.0.0) still carried the
   claims — releases are where stale claims survive.
-- Added `tests/test_release_claim_scan.py` (21 tests final): clean pass, title
+- Added `tests/test_release_claim_scan.py` (23 tests final): clean pass, title
   overclaim always fails even with notice, body overclaim without notice
   fails, bounded correction passes, Production Release label detection,
   notice marker requirements, case insensitivity, offline CLI mode, error
@@ -40,6 +40,10 @@
   review_by. Any body edit after review voids the exception (kills the
   future-claims-under-old-notice blind spot); expiry forces re-review via
   the daily CI run.
+- fetch paginates ALL releases (gh api --paginate --slurp, per_page=100,
+  pages flattened after strict shape check, malformed page = fail closed):
+  the plain endpoint returns only 30, so older releases could evade the
+  gate. Two-page + malformed-page regressions.
 - Pinned pytest==9.1.1 in release-claim-gate.yml (hosted-proven version):
   the daily cron runs unattended, so a floating pytest could change gate
   behavior with zero commits — same supply-chain rule as the action SHAs.
