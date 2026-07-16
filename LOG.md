@@ -1,5 +1,13 @@
 # Change Log
 
+## 2026-07-16 (required Python artifact gate)
+
+- Removed pull-request path filtering from the Python SDK workflow so its
+  artifact job always reports a status on protected-branch pull requests.
+- This permits branch protection to require
+  `Claims, build, wheel smoke, audit`; a package change cannot satisfy the
+  merge rule while its build or artifact validation is red or absent.
+
 ## 2026-07-16 (PyPI environment configuration)
 
 - Created the GitHub `pypi` environment and restricted deployments to
