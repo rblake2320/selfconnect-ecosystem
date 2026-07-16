@@ -1,2 +1,4 @@
 packages/selfconnect-py/**/__pycache__/
 packages/selfconnect-py/**/*.pyc
+__pycache__/
+*.pyc
