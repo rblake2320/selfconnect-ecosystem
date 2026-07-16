@@ -26,5 +26,10 @@ jobs:
       - name: Run readiness checker contract tests
         run: npm run test:readiness
 
-      - name: Smoke-run readiness report
-        run: python scripts\readiness.py --markdown
+      - name: Enforce readiness gate (fail on blockers)
+        # R-13: previously ran --markdown only, so the job could never fail —
+        # the green badge was structurally incapable of reflecting a blocker.
+        # --fail-on-blockers exits nonzero when any gate is not ready, so the
+        # badge now honestly tracks the open external gates (Gemini auth, MSI
+        # signing secrets, TPM attestation). Expected RED until those close.
+        run: python scripts\readiness.py --markdown --fail-on-blockers
