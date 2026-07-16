@@ -1,0 +1,33 @@
+name: release-claim-gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * *" # daily: releases can be edited without a commit
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: Unit tests for the gate
+        run: |
+          pip install pytest==9.1.1  # pinned: daily cron gate must not change behavior without a commit
+          python -m pytest tests/test_release_claim_scan.py -q
+      - name: Scan release titles/bodies (fail-closed)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Exit 1 = claim violation, exit 2 = fetch/parse error.
+        # Both are nonzero: a fetch failure fails the gate rather than
+        # passing silently (fail-closed).
+        run: |
+          python scripts/release_claim_scan.py \
+            --repo rblake2320/bpc-protocol \
+            --repo rblake2320/tsk-protocol \
+            --repo rblake2320/selfconnect-enterprise
