@@ -1,0 +1,87 @@
+name: Live Readiness Evidence Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_evidence_age_hours:
+        description: Evidence age in hours; may tighten but never exceed 168
+        required: true
+        default: 168
+        type: number
+
+permissions:
+  contents: read
+
+jobs:
+  live-readiness:
+    name: live-readiness
+    runs-on: [self-hosted, Windows, selfconnect-readiness]
+    timeout-minutes: 20
+    environment: live-readiness
+    env:
+      PKA_ROOT: ${{ vars.READINESS_PKA_ROOT }}
+      READINESS_WINDOWS_SIGNER_SHA256: ${{ vars.READINESS_WINDOWS_SIGNER_SHA256 }}
+
+    steps:
+      - name: Check out readiness implementation
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Require provisioned live-evidence inputs
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.READINESS_GH_TOKEN }}
+        run: |
+          if ($env:GITHUB_REF -ne 'refs/heads/main') {
+            throw "Live readiness evidence must run from refs/heads/main"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:PKA_ROOT)) {
+            throw "Repository variable READINESS_PKA_ROOT is required"
+          }
+          if (-not [IO.Path]::IsPathFullyQualified($env:PKA_ROOT)) {
+            throw "READINESS_PKA_ROOT must be an absolute path"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
+            throw "Secret READINESS_GH_TOKEN is required"
+          }
+          if ($env:READINESS_WINDOWS_SIGNER_SHA256 -notmatch '^[0-9A-Fa-f]{64}$') {
+            throw "READINESS_WINDOWS_SIGNER_SHA256 must pin one SHA-256 certificate thumbprint"
+          }
+
+      - name: Evaluate live readiness once
+        id: evaluate
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.READINESS_GH_TOKEN }}
+        run: |
+          python scripts\readiness.py --json `
+            --max-evidence-age-hours "${{ inputs.max_evidence_age_hours }}" `
+            | Tee-Object -FilePath readiness-evidence.json
+          $exitCode = $LASTEXITCODE
+          exit $exitCode
+
+      - name: Add evidence to workflow summary
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path -LiteralPath readiness-evidence.json) {
+            "## Live readiness evidence" >> $env:GITHUB_STEP_SUMMARY
+            '```json' >> $env:GITHUB_STEP_SUMMARY
+            Get-Content -LiteralPath readiness-evidence.json >> $env:GITHUB_STEP_SUMMARY
+            '```' >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Preserve non-secret readiness evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: live-readiness-evidence-${{ github.run_id }}
+          path: readiness-evidence.json
+          if-no-files-found: error
+          retention-days: 30

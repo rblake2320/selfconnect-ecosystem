@@ -1,5 +1,30 @@
 # Change Log
 
+## 2026-07-16 (fail-closed readiness and security boundary)
+
+- Reproduced hosted run `29509501237` succeeding while its own report said
+  `Overall: ATTENTION` and multiple required checks were blocked or
+  unavailable.
+- Made the readiness CLI fail nonzero by default. Added only an explicit
+  `--report-only` diagnostic path, whose output states that it is not readiness
+  evidence.
+- Split hosted contract validation from live readiness evidence. The hosted
+  status is now `readiness-contract`; the manual live gate requires a
+  provisioned self-hosted runner and protected cross-repository token.
+- Replaced cached repository-ref comparison with live remote-head comparison.
+- Replaced provider configuration presence with a real non-interactive exact
+  nonce response.
+- Bound MSI readiness to a fresh successful run on the current default-branch
+  head and to a downloaded, signed, size/hash-consistent artifact evidence set.
+- Added adversarial coverage for unavailable checks, truthy non-boolean
+  results, stale remote refs, failed provider probes, empty ADC material,
+  stale/wrong-head runs, unavailable artifacts, unsigned artifacts, and
+  tampered checksums.
+- Rewrote `SECURITY.md` to describe the code actually present in this
+  repository, bind claims to existing tests, correct cross-repository default
+  branch links, and provide a private vulnerability-reporting process without
+  publishing exploit details.
+
 ## 2026-07-16 (required Python artifact gate)
 
 - Removed pull-request path filtering from the Python SDK workflow so its
@@ -67,6 +92,28 @@
 - Regression: non-ASCII subprocess decode round-trip test; mangled-variant
   hash must not match; production fetch_releases call params asserted via
   mock (deleting encoding/errors from production fails the suite).
+
+## 2026-07-16
+
+- Replaced the hosted readiness smoke report with a required, hosted
+  `readiness` contract job. It runs only deterministic checker/security-policy
+  tests and commit-pinned reference resolution; it does not claim to evaluate
+  local hardware, provider credentials, or sibling repository state.
+- Added a separate manual `live-readiness` workflow for a protected self-hosted
+  Windows runner. It requires the canonical PKA repository root, a bounded
+  cross-repository token, an expected signer-certificate fingerprint, live
+  Gemini response, TPM probe, current repository heads, and current MSI
+  evidence.
+- Hardened repository evidence against fork and non-default-branch
+  substitution. Hardened result composition so `ok: true` cannot override an
+  unexpected status. Evidence age may be tightened but never expanded beyond
+  seven days.
+- Replaced MSI manifest self-attestation with Windows Authenticode validation:
+  `Valid` status, pinned signer SHA-256 fingerprint, and timestamp presence are
+  required in addition to workflow/head/hash binding.
+- Replaced ecosystem-wide security guarantees with client/component boundaries,
+  commit-pinned component policy links, executable local evidence paths, and a
+  private-repository disclosure boundary.
 
 ## 2026-07-16
 

@@ -1,4 +1,10 @@
-# SelfConnect Ecosystem Status - 2026-06-21
+# SelfConnect Ecosystem Status — 2026-06-21
+
+> Historical snapshot. Its readiness labels used the original report-only
+> semantics and must not be cited as current evidence. The maintained contract
+> and live-evidence boundaries are in `docs/external-gate-readiness.md`; in
+> particular, the historical MSI workflow result below is not current-head,
+> Authenticode-verified evidence.
 
 This is the current big-view status for the SelfConnect ecosystem. It is meant
 to keep repo state, proof state, and remaining blockers visible without hunting
