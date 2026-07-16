@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""Release claim scan — portfolio gate for public GitHub release title/body claims.
+
+Scans release titles and bodies for compliance/authorization claims that a
+repository cannot self-establish (FIPS validation, DoD Impact Level
+authorization, ATO, production-readiness declarations). Titles must always be
+clean. Body hits are tolerated only when a dated bounded correction notice
+supersedes them (the pattern used to retain implementation history while
+retracting claims).
+
+Usage:
+    python scripts/release_claim_scan.py --repo rblake2320/bpc-protocol \
+        --repo rblake2320/tsk-protocol --repo rblake2320/selfconnect-enterprise
+    python scripts/release_claim_scan.py --json-file fixtures.json
+
+Exit codes: 0 = all clean or bounded, 1 = violations, 2 = fetch/parse error.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+
+CLAIM_PATTERNS: list[tuple[str, str]] = [
+    (r"\bIL\s*[4-7]\s*[-/–]\s*[4-7]\b", "DoD Impact Level range claim (e.g. IL4-7)"),
+    (r"\bIL\s*[4-7]\s*/\s*[4-7]\s*/\s*[4-7]", "DoD Impact Level list claim (e.g. IL4/5/6)"),
+    (r"\bcomply\s+with\s+IL", "IL compliance assertion"),
+    (r"\bFIPS\s*140(?:-\d(?:/\d)?)?\s*(?:complian|validated|certified)", "FIPS validation/compliance claim"),
+    (r"\bcomply\b[^.\n]{0,80}\bFIPS\s*140", "FIPS compliance assertion"),
+    (r"\bproduction[- ]ready\b", "production-ready declaration"),
+    (r"\bProduction\s+Release\b", "Production Release label"),
+    (r"\bATO\b[^.\n]{0,40}\b(?:granted|holds|achieved|obtained)", "ATO possession claim"),
+    (r"\b(?:NIST\s+SP\s*800-53\s+High)\b[^.\n]{0,60}\bcompl", "NIST SP 800-53 High compliance claim"),
+]
+
+NOTICE_MARKERS = ("claim correction", "retracted")
+NOTICE_LINK_RE = re.compile(r"\b(?:SECURITY|PARKED)\.md\b", re.IGNORECASE)
+
+
+def find_claims(text: str) -> list[dict]:
+    hits = []
+    for pattern, label in CLAIM_PATTERNS:
+        for m in re.finditer(pattern, text or "", re.IGNORECASE):
+            hits.append({"label": label, "match": m.group(0), "offset": m.start()})
+    return hits
+
+
+def has_bounded_notice(body: str) -> bool:
+    low = (body or "").lower()
+    return all(marker in low for marker in NOTICE_MARKERS) and bool(NOTICE_LINK_RE.search(body or ""))
+
+
+def scan_release(release: dict) -> dict:
+    title = release.get("name") or ""
+    body = release.get("body") or ""
+    tag = release.get("tag_name") or "?"
+    title_hits = find_claims(title)
+    body_hits = find_claims(body)
+    bounded = has_bounded_notice(body)
+    if title_hits:
+        status = "fail"
+        reason = "title carries claims (titles must always be clean)"
+    elif body_hits and not bounded:
+        status = "fail"
+        reason = "body carries claims with no bounded correction notice"
+    elif body_hits and bounded:
+        status = "bounded"
+        reason = "historical claims retained under a dated bounded correction notice"
+    else:
+        status = "clean"
+        reason = "no claim patterns found"
+    return {
+        "tag": tag,
+        "title": title,
+        "status": status,
+        "reason": reason,
+        "title_hits": title_hits,
+        "body_hits": body_hits,
+    }
+
+
+def fetch_releases(repo: str) -> list[dict]:
+    out = subprocess.run(
+        ["gh", "api", f"repos/{repo}/releases"],
+        capture_output=True, text=True, timeout=60,
+    )
+    if out.returncode != 0:
+        raise RuntimeError(f"gh api failed for {repo}: {out.stderr.strip()[:200]}")
+    return json.loads(out.stdout)
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--repo", action="append", default=[], help="owner/name (repeatable)")
+    ap.add_argument("--json-file", help="offline mode: JSON file with {repo: [releases...]}")
+    args = ap.parse_args(argv)
+
+    sources: dict[str, list[dict]] = {}
+    try:
+        if args.json_file:
+            with open(args.json_file, encoding="utf-8") as fh:
+                sources = json.load(fh)
+        for repo in args.repo:
+            sources[repo] = fetch_releases(repo)
+    except Exception as exc:  # noqa: BLE001 - gate must report, not crash silently
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    if not sources:
+        print("ERROR: no --repo or --json-file given", file=sys.stderr)
+        return 2
+
+    failed = False
+    for repo, releases in sources.items():
+        if not releases:
+            print(f"{repo}: no releases (clean by absence)")
+            continue
+        for release in releases:
+            result = scan_release(release)
+            flag = {"clean": "OK ", "bounded": "OK*", "fail": "FAIL"}[result["status"]]
+            print(f"{flag} {repo}@{result['tag']} [{result['status']}] {result['reason']}")
+            for hit in result["title_hits"] + result["body_hits"]:
+                print(f"     - {hit['label']}: {hit['match']!r}")
+            if result["status"] == "fail":
+                failed = True
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
