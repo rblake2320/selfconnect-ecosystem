@@ -135,6 +135,28 @@ def test_allowlist_verdict_helper_dates():
     assert not ok and "expired" in reason
 
 
+def test_crlf_and_lf_bodies_hash_identically():
+    # GitHub API newline drift (hosted runner CRLF vs local LF) must not
+    # void an exception: same text, either line ending, same digest.
+    lf_body = NOTICE + OVERCLAIM_BODY
+    crlf_body = lf_body.replace("\n", "\r\n")
+    al = allow("o/r", "v1", lf_body)
+    for variant in (lf_body, crlf_body):
+        r = scan_release({"tag_name": "v1", "name": "v1", "body": variant},
+                         repo="o/r", allowlist=al)
+        assert r["status"] == "bounded", r["reason"]
+
+
+def test_sha_mismatch_reason_has_safe_diagnostics():
+    body = NOTICE + OVERCLAIM_BODY
+    al = allow("o/r", "v1", body)
+    r = scan_release({"tag_name": "v1", "name": "v1", "body": body + "tampered"},
+                     repo="o/r", allowlist=al)
+    assert r["status"] == "fail"
+    assert "expected=" in r["reason"] and "actual=" in r["reason"] and "canonical_len=" in r["reason"]
+    assert "production-ready" not in r["reason"]  # never leak body content
+
+
 def test_find_claims_is_case_insensitive():
     assert find_claims("this is PRODUCTION-READY software")
     assert find_claims("Comply With il4/5/6 requirements")

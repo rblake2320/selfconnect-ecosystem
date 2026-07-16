@@ -109,6 +109,21 @@ def load_allowlist(path: pathlib.Path | str | None = None) -> dict:
     return {(e["repo"], e["tag"]): e for e in data.get("entries", [])}
 
 
+def canonical_body(body: str) -> str:
+    """Normalize newlines (CRLF/CR -> LF) before hashing.
+
+    The GitHub API serves release bodies with CRLF on some paths and LF on
+    others (hosted Ubuntu runners saw CRLF where local Windows gh returned
+    LF). Hash the canonical form so the same text always matches; real edits
+    still change the hash.
+    """
+    return (body or "").replace("\r\n", "\n").replace("\r", "\n")
+
+
+def body_digest(body: str) -> str:
+    return hashlib.sha256(canonical_body(body).encode("utf-8")).hexdigest()
+
+
 def allowlist_verdict(entry: dict | None, body: str, today: datetime.date | None = None) -> tuple[bool, str]:
     """Bounded status is an exact, expiring exception — not a blanket notice.
 
@@ -120,9 +135,14 @@ def allowlist_verdict(entry: dict | None, body: str, today: datetime.date | None
     """
     if entry is None:
         return False, "release not in claim_scan_allowlist.json (bounded status requires an exact reviewed exception)"
-    digest = hashlib.sha256((body or "").encode("utf-8")).hexdigest()
+    digest = body_digest(body)
     if digest != entry.get("body_sha256"):
-        return False, "body changed since allowlist review (sha256 mismatch — new content is unreviewed)"
+        # Safe diagnostics: hashes and length only, never body content.
+        return False, (
+            "body changed since allowlist review (sha256 mismatch — new content is unreviewed; "
+            f"expected={entry.get('body_sha256', '?')[:16]}... actual={digest[:16]}... "
+            f"canonical_len={len(canonical_body(body))})"
+        )
     today = today or datetime.date.today()
     review_by = datetime.date.fromisoformat(entry.get("review_by", "1970-01-01"))
     if today > review_by:

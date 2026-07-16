@@ -11,7 +11,7 @@
     {
       "repo": "rblake2320/selfconnect-enterprise",
       "tag": "v1.0.0",
-      "body_sha256": "aefe4f0707df5ae9e99a7b8d953ced792e3f302065b98e0e692b66c9e2cdf4c4",
+      "body_sha256": "b106f21311f29ad263e1642006ba25b594e94b427442eedba0311d3e3e9705d3",
       "corrected": "2026-07-16",
       "review_by": "2026-10-16",
       "reason": "Production Release label + v0.6 observer-exposure claim retracted (GAPS OBS-1)"
