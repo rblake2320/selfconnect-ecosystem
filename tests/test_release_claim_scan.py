@@ -165,6 +165,24 @@ def test_non_ascii_subprocess_decode_regression():
     assert body_digest(mangled) != body_digest(em)
 
 
+def test_fetch_releases_production_decode_params():
+    # Guards the PRODUCTION call: deleting encoding/errors from
+    # fetch_releases must fail this test, not just the round-trip helper.
+    from unittest.mock import patch
+    from release_claim_scan import fetch_releases
+    fake_body = "Security Release — em dash — body"
+    fake = subprocess.CompletedProcess(
+        args=["gh"], returncode=0,
+        stdout=json.dumps([{"tag_name": "v1", "name": "v1", "body": fake_body}]),
+        stderr="")
+    with patch("release_claim_scan.subprocess.run", return_value=fake) as mock_run:
+        releases = fetch_releases("owner/repo")
+    kwargs = mock_run.call_args.kwargs
+    assert kwargs.get("encoding") == "utf-8"
+    assert kwargs.get("errors") == "strict"
+    assert releases[0]["body"] == fake_body  # non-ASCII survives the path
+
+
 def test_sha_mismatch_reason_has_safe_diagnostics():
     body = NOTICE + OVERCLAIM_BODY
     al = allow("o/r", "v1", body)

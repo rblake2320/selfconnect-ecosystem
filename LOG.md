@@ -13,7 +13,8 @@
   (BPC 06c4595c..., len 5092; Enterprise 5ef3287d..., len 6246 — verified
   byte-identical to hosted actuals by both agents independently).
 - Regression: non-ASCII subprocess decode round-trip test; mangled-variant
-  hash must not match.
+  hash must not match; production fetch_releases call params asserted via
+  mock (deleting encoding/errors from production fails the suite).
 
 ## 2026-07-16
 
@@ -26,7 +27,7 @@
   Motivated by the 2026-07-16 release-claim audit: masters were cleaned but
   the pinned releases (BPC v0.2.0, Enterprise v1.0.0) still carried the
   claims — releases are where stale claims survive.
-- Added `tests/test_release_claim_scan.py` (17 tests): clean pass, title
+- Added `tests/test_release_claim_scan.py` (21 tests final): clean pass, title
   overclaim always fails even with notice, body overclaim without notice
   fails, bounded correction passes, Production Release label detection,
   notice marker requirements, case insensitivity, offline CLI mode, error
