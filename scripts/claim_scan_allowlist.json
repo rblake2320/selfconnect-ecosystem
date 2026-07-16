@@ -3,7 +3,7 @@
     {
       "repo": "rblake2320/bpc-protocol",
       "tag": "v0.2.0",
-      "body_sha256": "756c9f8e84209f2fa4b9596e3bc5c54e8a0eb16e7390cb40fd45819f1aa3b883",
+      "body_sha256": "06c4595c020ae1e1dd24586efb2d49d826d82197efe7c3e414b47d6adc035b5f",
       "corrected": "2026-07-16",
       "review_by": "2026-10-16",
       "reason": "IL4-7/FIPS/production claims retracted via leading notice; issue #10"
@@ -11,7 +11,7 @@
     {
       "repo": "rblake2320/selfconnect-enterprise",
       "tag": "v1.0.0",
-      "body_sha256": "2f782411615cd76d7719f168c4f53fe4fab430cd44816f3aa07c700e1154380b",
+      "body_sha256": "5ef3287dc2700f4d1fff45459c9a4ff60d1fa7cd05166b427683221f897e359c",
       "corrected": "2026-07-16",
       "review_by": "2026-10-16",
       "reason": "Production Release label + v0.6 observer-exposure claim retracted (GAPS OBS-1)"

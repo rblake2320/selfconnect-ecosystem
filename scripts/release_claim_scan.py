@@ -194,7 +194,9 @@ def scan_release(release: dict, repo: str = "?", allowlist: dict | None = None) 
 def fetch_releases(repo: str) -> list[dict]:
     out = subprocess.run(
         ["gh", "api", f"repos/{repo}/releases"],
-        capture_output=True, text=True, timeout=60,
+        # encoding pinned: Windows locale decode (cp1252) silently mangles
+        # unicode in bodies, which changes the canonical hash cross-platform
+        capture_output=True, text=True, encoding="utf-8", timeout=60,
     )
     if out.returncode != 0:
         raise RuntimeError(f"gh api failed for {repo}: {out.stderr.strip()[:200]}")
