@@ -40,6 +40,9 @@
   review_by. Any body edit after review voids the exception (kills the
   future-claims-under-old-notice blind spot); expiry forces re-review via
   the daily CI run.
+- Pinned pytest==9.1.1 in release-claim-gate.yml (hosted-proven version):
+  the daily cron runs unattended, so a floating pytest could change gate
+  behavior with zero commits — same supply-chain rule as the action SHAs.
 - Pinned checkout/setup-python to core's immutable SHAs in BOTH workflows
   (release-claim-gate.yml and readiness.yml — the readiness contract's
   floating tags were part of the same gate).

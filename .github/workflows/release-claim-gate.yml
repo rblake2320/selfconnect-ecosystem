@@ -18,7 +18,7 @@ jobs:
           python-version: "3.12"
       - name: Unit tests for the gate
         run: |
-          pip install pytest
+          pip install pytest==9.1.1  # pinned: daily cron gate must not change behavior without a commit
           python -m pytest tests/test_release_claim_scan.py -q
       - name: Scan release titles/bodies (fail-closed)
         env:
