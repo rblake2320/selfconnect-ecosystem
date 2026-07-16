@@ -56,7 +56,10 @@ The env var `WIRE_ENABLED=0` causes `mesh_wire.py` to deny all dispatches immedi
 
 ### Layer 5 — Accord Signatures (selfconnect-accord)
 
-`selfconnect-accord` adds detached cryptographic signatures to the ledger, producing evidence files suitable for compliance audits or legal proceedings.
+`selfconnect-accord` adds detached cryptographic signatures to ledger exports.
+Those signatures can support integrity and attribution review, but suitability
+for an audit or legal proceeding depends on the complete collection, custody,
+retention, assessment, and deployment process.
 
 ---
 
@@ -70,7 +73,8 @@ The env var `WIRE_ENABLED=0` causes `mesh_wire.py` to deny all dispatches immedi
 
 The enterprise and federal tiers add agent identity:
 - **enterprise**: operator-issued agent tokens, revocable
-- **federal**: device-bound identity via BPC (Bound Pair Credentials) — hardware-bound, replay-proof
+- **federal**: registered BPC pair-key identity with configured replay controls;
+  device or hardware binding depends on the deployed key store and attestation path
 
 An agent must present a valid identity before `agent-wire` will dispatch its messages.
 

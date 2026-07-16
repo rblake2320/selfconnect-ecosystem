@@ -48,7 +48,9 @@ Returns: table of recent events with timestamps, session IDs, event types, token
 selfconnect audit SESSION_ID [--output FILE] [--key KEY]
 ```
 
-Returns: full chain-of-custody JSON for the session
+Returns: server-reported workflow and retained event hash-chain JSON for the
+session. This output is evidence input, not a compliance or authorization
+determination.
 
 ### Session Management
 

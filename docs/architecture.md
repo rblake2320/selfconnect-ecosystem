@@ -19,11 +19,11 @@ This means:
 ```
                     ┌──────────────┐
                     │    federal   │
-                    │  (IL6/IL7)   │
+                    │ (restricted) │
                     └──────┬───────┘
                            │ extends
                     ┌──────▼───────┐
-                    │  enterprise  │◄── accord (compliance evidence)
+                    │  enterprise  │◄── accord (signed evidence inputs)
                     │ (governance) │
                     └──────┬───────┘
                            │ governs
@@ -103,19 +103,22 @@ Adds on top of `core`:
 
 ---
 
-## federal — IL6/IL7 Tier
+## federal — Restricted-Environment Deployment Research
 
 Extends enterprise with:
-- Agentic identity (bound to device + operator credential)
-- IL6/IL7 classification gating
-- FedRAMP-aligned audit trail
-- Compatibility with DoD PKI
+- Agent identity mechanisms that may combine device and operator credentials
+- Configurable classification gating intended for deployment-specific assessment
+- Audit events that can be mapped during a deployment-specific control assessment
+- Integration research for deployment-provided PKI
 
 ---
 
-## accord — Compliance Evidence
+## accord — Evidence Packaging
 
-Cryptographically signs the audit ledger output so it can be presented as legal/compliance evidence. Uses hash-chained JSONL + detached signatures.
+Adds detached signatures to hash-chained JSONL ledger exports. The resulting
+files provide integrity and signer-attribution inputs; they do not by themselves
+establish completeness, legal admissibility, regulatory compliance, or an
+authorization decision.
 
 ---
 

@@ -1,7 +1,9 @@
 # SelfConnect Ecosystem
 
-> **OS-native AI-to-AI communication — no API, no browser, no middleware.**
-> Win32 PostMessage injection, cross-node mesh, enterprise governance, and federal-tier compliance — all from a single protocol.
+> **OS-native local AI-to-AI terminal transport.**
+> The core Windows transport uses Win32 message delivery for the local
+> agent-to-agent hop. Other repositories add routing, policy, and evidence
+> components, each with its own tested boundary.
 
 ---
 
@@ -17,8 +19,8 @@
 │                          │                                           │
 │  ┌──────────┐   ┌────────▼───┐   ┌──────────┐  ┌───────────┐      │
 │  │   core   │──▶│ enterprise │──▶│ federal  │  │   accord  │      │
-│  │ (Win32   │   │(governance │   │(IL6/IL7  │  │(crypto    │      │
-│  │  SDK)    │   │ + policy)  │   │ tier)    │  │ evidence) │      │
+│  │ (Win32   │   │(governance │   │(restricted│  │(crypto    │      │
+│  │  SDK)    │   │ + policy)  │   │ env R&D)  │  │ evidence) │      │
 │  └──────────┘   └────────────┘   └──────────┘  └───────────┘      │
 │       │                                                              │
 │       ├──▶ alt        (deep Win32 optimization fork)                │
@@ -31,7 +33,7 @@
 │       ├──▶ store      (SQLite event store — query + export)         │
 │       ├──▶ agent-wire   (policy dispatch gateway)                   │
 │       ├──▶ agent-status (token burn monitor + budget enforcement)   │
-│       ├──▶ bpc          (hardware-bound credential protocol)        │
+│       ├──▶ bpc          (registered pair-key credential protocol)   │
 │       ├──▶ tsk          (rotating segment key protocol)             │
 │       └──▶ demo         (demo kit)                                  │
 └─────────────────────────────────────────────────────────────────────┘
@@ -50,8 +52,8 @@ Current status snapshot: [`docs/ecosystem-status-2026-06-21.md`](docs/ecosystem-
 | `harness/` | [selfconnect-frontier-harness](https://github.com/rblake2320/selfconnect-frontier-harness) | Execution kernel — model-agnostic, hot-swappable. Channel × Tier × Model are independent dials; mid-task switches produce no restart, no context loss |
 | `core/` | [selfconnect](https://github.com/rblake2320/selfconnect) | Core Win32 SDK — PostMessage + PrintWindow injection, zero API between agents |
 | `enterprise/` | [selfconnect-enterprise](https://github.com/rblake2320/selfconnect-enterprise) | Enterprise AI agent infrastructure — Win32-native mesh for government and regulated enterprise |
-| `federal/` | [selfconnect-federal](https://github.com/rblake2320/selfconnect-federal) | IL6/IL7 aligned agentic identity and orchestration |
-| `accord/` | [selfconnect-accord](https://github.com/rblake2320/selfconnect-accord) | Cryptographically enforced agent compliance evidence platform |
+| `federal/` | [selfconnect-federal](https://github.com/rblake2320/selfconnect-federal) | Research and integration components for restricted deployment boundaries; authorization is deployment-specific |
+| `accord/` | [selfconnect-accord](https://github.com/rblake2320/selfconnect-accord) | Evidence generation and verification components; not a legal or regulatory determination |
 | `alt/` | [selfconnect-alt](https://github.com/rblake2320/selfconnect-alt) | Deep Win32 optimization fork — CacheRequest UIA, WriteConsoleInput, ConPTY, dxcam DXGI, SharedMemIPC |
 | `linux/` | [selfconnect-linux](https://github.com/rblake2320/selfconnect-linux) | Linux-native layer for DGX Spark (Ubuntu 24.04, aarch64) — PTY-based, identity-verified via /proc, no GUI required |
 | `mac/` | [SelfConnect-Mac](https://github.com/rblake2320/SelfConnect-Mac) | macOS port |
@@ -59,10 +61,10 @@ Current status snapshot: [`docs/ecosystem-status-2026-06-21.md`](docs/ecosystem-
 | `plugins/` | [selfconnect-plugins](https://github.com/rblake2320/selfconnect-plugins) | Plugin and extension layer |
 | `log/` | [selfconnect-log](https://github.com/rblake2320/selfconnect-log) | Audit logging |
 | `provenance/` | [selfconnect-provenance](https://github.com/rblake2320/selfconnect-provenance) | Cryptographic provenance tracking |
-| `selfconnect-store/` | [selfconnect-store](https://github.com/rblake2320/selfconnect-store) | SQLite-backed event store — session history, token costs, compliance export queries |
+| `selfconnect-store/` | [selfconnect-store](https://github.com/rblake2320/selfconnect-store) | SQLite-backed event store — session history, token costs, and evidence queries |
 | `agent-wire/` | [agent-wire](https://github.com/rblake2320/agent-wire) | Policy-as-code dispatch gateway with deny-by-default, cryptographic ledger, and classification gating |
 | `agent-status/` | [agent-status](https://github.com/rblake2320/agent-status) | Real-time token burn monitor — JSONL tailing, combined cross-session ceiling, USD limits, PreToolUse enforcement hook |
-| `bpc/` | [bpc-protocol](https://github.com/rblake2320/bpc-protocol) | Bound Pair Credentials — hardware-bound, pair-verified, replay-proof credential protocol used in enterprise/federal tiers |
+| `bpc/` | [bpc-protocol](https://github.com/rblake2320/bpc-protocol) | Registered pair-key authentication with configurable replay controls; hardware backing is deployment-dependent |
 | `tsk/` | [tsk-protocol](https://github.com/rblake2320/tsk-protocol) | Tumbler-Style Rotating Segment Keys — structural key secrecy, used in federal/enterprise tiers |
 | `demo/` | [SelfConnect-Demo-kit-](https://github.com/rblake2320/SelfConnect-Demo-kit-) | Demo kit |
 
@@ -97,7 +99,7 @@ git submodule update --init --recursive
 ┌─────────────────────────────────────────────┐
 │  harness                                    │  ← Execution kernel (channel/tier/model switch)
 ├─────────────────────────────────────────────┤
-│  federal / accord                           │  ← Compliance & evidence layer
+│  federal / accord                           │  ← Restricted-environment and evidence components
 ├─────────────────────────────────────────────┤
 │  enterprise                                 │  ← Governance, policy, audit ledger
 ├─────────────────────────────────────────────┤
@@ -115,7 +117,10 @@ git submodule update --init --recursive
 
 ## Key Concepts
 
-**Win32 PostMessage injection** — `core` uses `WM_CHAR` PostMessage to inject keystrokes into any process window by HWND. No focus required. No API. No browser.
+**Win32 PostMessage injection** — `core` uses `WM_CHAR` PostMessage to
+deliver text to a selected window by HWND without requiring foreground focus.
+The local agent-to-agent hop does not require a vendor API; the terminal
+applications or model providers may use their own APIs.
 
 **Two-pipe mesh architecture** (three-node: Windows ↔ Spark-1 ↔ Spark-2):
 - Pipe 1 — Discovery: `spark2_client.py → Hub:8765 → hub_relay.py → HWND list`
@@ -168,7 +173,8 @@ See `docs/` for cross-repo design documents:
 
 ## Repository Visibility
 
-All repositories in this ecosystem are **private**. Access is by invitation only.
+Repository visibility varies. GitHub is authoritative for the current public
+or private status of each repository.
 
 | Repo | Role |
 |------|------|
@@ -176,8 +182,8 @@ All repositories in this ecosystem are **private**. Access is by invitation only
 | `selfconnect-frontier-harness` | Execution kernel |
 | `selfconnect` | Core Win32 SDK |
 | `selfconnect-enterprise` | Enterprise governance layer |
-| `selfconnect-federal` | Federal/IL6-IL7 tier |
-| `selfconnect-accord` | Compliance evidence platform |
+| `selfconnect-federal` | Restricted-environment deployment research |
+| `selfconnect-accord` | Evidence generation and verification components |
 | `selfconnect-alt` | Deep Win32 optimization fork |
 | `selfconnect-linux` | Linux / DGX Spark layer |
 | `SelfConnect-Mac` | macOS port |

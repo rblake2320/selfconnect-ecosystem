@@ -1,8 +1,8 @@
 """
 SelfConnect + AutoGen Integration Example
 
-Wraps AutoGen agent conversations with SelfConnect governance so every
-message, tool call, and agent interaction is recorded in the audit trail.
+Wraps an AutoGen conversation with session start, summary, completion, and
+error events. It does not observe every internal message or tool call.
 
 Requirements:
     pip install selfconnect pyautogen
@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional
 
 class GovernedConversation:
     """
-    Wraps an AutoGen agent conversation with SelfConnect governance.
+    Wraps an AutoGen conversation with bounded SelfConnect event reporting.
 
     Parameters
     ----------
@@ -39,7 +39,7 @@ class GovernedConversation:
     recipient : autogen.ConversableAgent
         The agent that receives the initial message.
     agent_id : str
-        Identifier for this conversation in the SelfConnect audit trail.
+        Identifier used for this conversation's SelfConnect event records.
     base_url : str
         SelfConnect API base URL.
     """
@@ -188,7 +188,7 @@ def _demo():
         recipient=assistant,
         agent_id="demo-autogen",
     )
-    result = conv.initiate_chat(
+    conv.initiate_chat(
         message="What are the top 3 benefits of AI governance?",
         max_turns=3,
     )

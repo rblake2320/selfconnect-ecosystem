@@ -2,7 +2,7 @@
 SelfConnect LangChain Callback Handler
 
 Automatically instruments LangChain chains and agents with SelfConnect
-governance, cost tracking, and audit trail.
+session and event telemetry callbacks.
 
 Usage::
 
@@ -24,10 +24,10 @@ Usage::
 from __future__ import annotations
 
 import time
-import uuid
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
+from ._version import __version__
 from .client import TskClient, SelfConnectError
 
 try:
@@ -44,8 +44,8 @@ except ImportError:
 
 class SelfConnectCallbackHandler(BaseCallbackHandler):
     """
-    LangChain callback handler that posts all LLM calls, tool uses, and
-    chain events to the SelfConnect audit trail in real time.
+    LangChain callback handler that posts the callbacks it receives while a
+    SelfConnect session is active.
 
     Parameters
     ----------
@@ -63,7 +63,8 @@ class SelfConnectCallbackHandler(BaseCallbackHandler):
         creating a new one.
     raise_on_error : bool
         If ``True``, re-raise SelfConnect errors. If ``False`` (default),
-        log and continue so LangChain execution is never blocked.
+        log and continue. The default is therefore fail-open telemetry, not a
+        non-bypassable policy or budget enforcement boundary.
     """
 
     def __init__(
@@ -287,7 +288,7 @@ class SelfConnectCallbackHandler(BaseCallbackHandler):
         try:
             self._session_id = self.client.start_session(
                 agent_id=self.agent_id,
-                meta={"framework": "langchain", "handler_version": "1.0.0"},
+                meta={"framework": "langchain", "handler_version": __version__},
             )
         except SelfConnectError as exc:
             if self.raise_on_error:

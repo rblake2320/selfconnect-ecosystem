@@ -2,7 +2,10 @@
 
 ## Overview
 
-The `selfconnect` CLI is the terminal interface for [SelfConnect.ai](https://selfconnect.ai) — the AI governance platform that provides hard budget enforcement, cryptographic audit trails, and identity-bound TSK keys for AI agents.
+The `selfconnect` CLI is a client for SelfConnect session, event, budget-status,
+and server-reported workflow APIs. Server policy determines whether a request
+is accepted; the CLI does not itself create a non-bypassable enforcement or
+authorization boundary.
 
 Install: `pip install selfconnect`
 
@@ -65,14 +68,17 @@ selfconnect usage --json            # raw JSON
 
 ### selfconnect audit SESSION_ID
 
-Export the cryptographic audit trail (chain-of-custody) for a session.
+Export the configured server's workflow and retained event hash-chain data for
+a session.
 
 ```bash
 selfconnect audit 3f2a1b4c-...
 selfconnect audit 3f2a1b4c-... --output audit.json
 ```
 
-**Output:** Full chain-of-custody JSON with hash-chained events, suitable for compliance export (EU AI Act, NIST 800-53, ISO 42001).
+**Output:** Server-reported JSON. Hash chaining can support tamper detection for
+retained entries, but the CLI does not prove completeness, immutable custody,
+signer identity, legal admissibility, or regulatory compliance.
 
 ### selfconnect keys info
 
@@ -137,10 +143,10 @@ selfconnect session end "$SESSION" --summary "Pipeline completed"
 selfconnect audit "$SESSION" --output "audit-$(date +%Y%m%d).json"
 ```
 
-### Export compliance bundle
+### Export workflow evidence input
 
 ```bash
-selfconnect audit SESSION_ID --output compliance-bundle.json
+selfconnect audit SESSION_ID --output workflow-evidence.json
 ```
 
 ## Exit Codes

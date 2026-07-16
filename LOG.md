@@ -1,5 +1,39 @@
 # Change Log
 
+## 2026-07-16 (Python SDK 1.1.1 claim and release hardening)
+
+- Corrected ecosystem and Python SDK public language so local Win32 transport,
+  API-client behavior, callback coverage, server-side rejection, retained
+  hash-chain data, hardware backing, and deployment authorization have separate
+  bounded claims.
+- Removed the invalid impact-level reference and unsupported compliance,
+  completeness, immutability, enforcement, hardware-binding, and replay
+  absolutes from current umbrella/package documentation.
+- Invalidated the prior `docs/WATCH_LEDGER_IBCT_AIP.md` mapping after checking
+  the cited primary source: NIST SP 800-204C is a DevSecOps/service-mesh
+  publication and does not define the attributed IBCT/AIP concepts.
+- Single-sourced Python package version 1.1.1 through
+  `selfconnect/_version.py`; runtime export, User-Agent, handler metadata, and
+  build metadata now share that source.
+- Removed committed wheel/sdist files and Python bytecode/cache artifacts; CI
+  rebuilds distributions from reviewed source.
+- Added `scripts/package_release_gate.py`: source claims/version/tracked-file
+  checks plus static wheel RECORD coverage, exact payload, metadata,
+  archive-path/link, and annotated-tag binding verification. Artifact code is
+  never imported by the gate.
+- Added version, fail-open callback, claim-gate, wheel-tamper, and explicit
+  disposable-live-identity tests.
+- Added Python 3.9-3.13 unit CI and a 3.12 artifact lane with Ruff, build,
+  Twine metadata validation, clean-wheel smoke testing, and a resolved-
+  dependency audit that excludes only the unpublished local package.
+- Hosted 3.9/3.10 CI exposed a test-only dotted-import ambiguity caused by the
+  `selfconnect.cli` package exporting a function named `main`. CLI tests now
+  patch the explicitly imported module object, so the same assertion runs
+  consistently across supported Python versions.
+- Added a disabled-until-owner-configured Trusted Publishing workflow. It
+  requires the protected `pypi` environment activation variable and matching
+  PyPI OIDC publisher, then verifies published hashes and attestations.
+
 ## 2026-07-16 (incident record — hosted hash mismatch)
 
 - Root cause: Windows cp1252 locale decoding of gh's UTF-8 stdout mangled

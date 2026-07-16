@@ -5,6 +5,7 @@ All tests are unit tests — no real network calls.
 """
 from __future__ import annotations
 
+import importlib
 import json
 from unittest.mock import MagicMock, patch
 
@@ -12,7 +13,9 @@ import pytest
 from click.testing import CliRunner
 
 from selfconnect.cli.main import cli
-from selfconnect.cli.config import CONFIG_FILE, save_credentials, clear_credentials, get_tsk_key
+
+
+CLI_MODULE = importlib.import_module("selfconnect.cli.main")
 
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -112,14 +115,14 @@ class TestLogout:
 
 class TestStatus:
     def test_status_text_output(self, runner, mock_client):
-        with patch("selfconnect.cli.main._client", return_value=mock_client):
+        with patch.object(CLI_MODULE, "_client", return_value=mock_client):
             result = runner.invoke(cli, ["status"])
         assert result.exit_code == 0
         assert "Budget" in result.output
         assert "487,655" in result.output
 
     def test_status_json_output(self, runner, mock_client):
-        with patch("selfconnect.cli.main._client", return_value=mock_client):
+        with patch.object(CLI_MODULE, "_client", return_value=mock_client):
             result = runner.invoke(cli, ["status", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -136,14 +139,14 @@ class TestStatus:
 
 class TestUsage:
     def test_usage_text_output(self, runner, mock_client):
-        with patch("selfconnect.cli.main._client", return_value=mock_client):
+        with patch.object(CLI_MODULE, "_client", return_value=mock_client):
             result = runner.invoke(cli, ["usage"])
         assert result.exit_code == 0
         assert "llm_call" in result.output
         assert "512" in result.output
 
     def test_usage_json_output(self, runner, mock_client):
-        with patch("selfconnect.cli.main._client", return_value=mock_client):
+        with patch.object(CLI_MODULE, "_client", return_value=mock_client):
             result = runner.invoke(cli, ["usage", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -152,7 +155,7 @@ class TestUsage:
 
     def test_usage_empty(self, runner, mock_client):
         mock_client.get_tsk_events.return_value = []
-        with patch("selfconnect.cli.main._client", return_value=mock_client):
+        with patch.object(CLI_MODULE, "_client", return_value=mock_client):
             result = runner.invoke(cli, ["usage"])
         assert result.exit_code == 0
         assert "No events" in result.output
@@ -162,7 +165,7 @@ class TestUsage:
 
 class TestAudit:
     def test_audit_stdout(self, runner, mock_client):
-        with patch("selfconnect.cli.main._client", return_value=mock_client):
+        with patch.object(CLI_MODULE, "_client", return_value=mock_client):
             result = runner.invoke(cli, ["audit", "sess-abc-123"])
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -170,7 +173,7 @@ class TestAudit:
 
     def test_audit_to_file(self, runner, mock_client, tmp_path):
         out = str(tmp_path / "audit.json")
-        with patch("selfconnect.cli.main._client", return_value=mock_client):
+        with patch.object(CLI_MODULE, "_client", return_value=mock_client):
             result = runner.invoke(cli, ["audit", "sess-abc-123", "--output", out])
         assert result.exit_code == 0
         assert "saved" in result.output
@@ -182,20 +185,20 @@ class TestAudit:
 
 class TestSession:
     def test_session_start(self, runner, mock_client):
-        with patch("selfconnect.cli.main._client", return_value=mock_client):
+        with patch.object(CLI_MODULE, "_client", return_value=mock_client):
             result = runner.invoke(cli, ["session", "start", "my-agent"])
         assert result.exit_code == 0
         assert "sess-new-456" in result.output
 
     def test_session_start_json(self, runner, mock_client):
-        with patch("selfconnect.cli.main._client", return_value=mock_client):
+        with patch.object(CLI_MODULE, "_client", return_value=mock_client):
             result = runner.invoke(cli, ["session", "start", "my-agent", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["session_id"] == "sess-new-456"
 
     def test_session_end(self, runner, mock_client):
-        with patch("selfconnect.cli.main._client", return_value=mock_client):
+        with patch.object(CLI_MODULE, "_client", return_value=mock_client):
             result = runner.invoke(cli, ["session", "end", "sess-new-456"])
         assert result.exit_code == 0
         assert "ended" in result.output.lower()
@@ -205,13 +208,13 @@ class TestSession:
 
 class TestKeys:
     def test_keys_info(self, runner, mock_client):
-        with patch("selfconnect.cli.main._client", return_value=mock_client):
+        with patch.object(CLI_MODULE, "_client", return_value=mock_client):
             result = runner.invoke(cli, ["keys", "info"])
         assert result.exit_code == 0
         assert "Budget" in result.output
 
     def test_keys_info_json(self, runner, mock_client):
-        with patch("selfconnect.cli.main._client", return_value=mock_client):
+        with patch.object(CLI_MODULE, "_client", return_value=mock_client):
             result = runner.invoke(cli, ["keys", "info", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)

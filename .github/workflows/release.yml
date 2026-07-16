@@ -1,0 +1,218 @@
+name: Publish selfconnect Python SDK
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build release artifacts
+    if: >-
+      startsWith(github.event.release.tag_name, 'selfconnect-py-v') &&
+      github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: Install pinned release tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            build==1.5.0 \
+            pip-audit==2.10.1 \
+            pytest==9.1.1 \
+            pytest-asyncio==1.4.0 \
+            respx==0.23.1 \
+            twine==6.2.0
+          python -m pip install -e "./packages/selfconnect-py[all]"
+      - name: Bind release tag to version and protected-branch history
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          git fetch origin main --no-tags
+          python scripts/package_release_gate.py \
+            --root . \
+            --expected-tag "$RELEASE_TAG"
+      - name: Run release-owned tests
+        run: >
+          python -m pytest
+          tests/test_package_release_gate.py
+          packages/selfconnect-py/tests
+          -q -m "not integration"
+      - name: Audit the resolved release dependency environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip freeze --exclude-editable > "$RUNNER_TEMP/release-requirements.txt"
+          python -m pip_audit \
+            --progress-spinner off \
+            --requirement "$RUNNER_TEMP/release-requirements.txt"
+      - name: Build and inspect exact artifacts
+        run: |
+          python -m build --outdir packages/selfconnect-py/dist packages/selfconnect-py
+          python -m twine check packages/selfconnect-py/dist/*
+          python scripts/package_release_gate.py \
+            --root . \
+            --dist-dir packages/selfconnect-py/dist \
+            --expected-tag "${{ github.event.release.tag_name }}"
+      - name: Install and smoke-test the exact release wheel
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(packages/selfconnect-py/dist/*.whl)
+          test "${#wheels[@]}" -eq 1
+          python -m venv "$RUNNER_TEMP/release-wheel-venv"
+          "$RUNNER_TEMP/release-wheel-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/release-wheel-venv/bin/python" -m pip install "${wheels[0]}"
+          "$RUNNER_TEMP/release-wheel-venv/bin/python" - <<'PY'
+          import importlib.metadata
+          import os
+          import selfconnect
+          from selfconnect import TskClient
+
+          expected = os.environ["RELEASE_TAG"].removeprefix("selfconnect-py-v")
+          assert importlib.metadata.version("selfconnect") == expected
+          assert selfconnect.__version__ == expected
+          client = TskClient("sc-tsk-RELEASE-WHEEL-SMOKE")
+          try:
+              assert client._http.headers["User-Agent"] == f"selfconnect-py/{expected}"
+          finally:
+              client.close()
+          PY
+          test "$("$RUNNER_TEMP/release-wheel-venv/bin/selfconnect" version)" = \
+            "selfconnect ${RELEASE_TAG#selfconnect-py-v}"
+      - name: Store exact distributions
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: selfconnect-python-distributions
+          path: packages/selfconnect-py/dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish through PyPI Trusted Publishing
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/selfconnect
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Require explicit owner activation in the pypi environment
+        env:
+          PYPI_TRUSTED_PUBLISHING_ENABLED: ${{ vars.PYPI_TRUSTED_PUBLISHING_ENABLED }}
+        run: |
+          test "$PYPI_TRUSTED_PUBLISHING_ENABLED" = "true" || {
+            echo "The pypi environment is not activated for Trusted Publishing." >&2
+            exit 1
+          }
+      - name: Download exact distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: selfconnect-python-distributions
+          path: dist/
+      - name: Publish with short-lived OIDC credentials and attestations
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
+        with:
+          packages-dir: dist/
+          verify-metadata: true
+          skip-existing: false
+          print-hash: true
+
+  verify:
+    name: Verify published hashes and provenance
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: Download exact distributions
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: selfconnect-python-distributions
+          path: dist/
+      - name: Install pinned provenance verifier
+        run: python -m pip install pypi-attestations==0.0.29
+      - name: Compare PyPI hashes and verify Trusted Publisher provenance
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import subprocess
+          import time
+          import urllib.request
+
+          tag = __import__("os").environ["RELEASE_TAG"]
+          prefix = "selfconnect-py-v"
+          if not tag.startswith(prefix):
+              raise SystemExit(f"unexpected release tag: {tag}")
+          version = tag.removeprefix(prefix)
+          expected = {
+              path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in pathlib.Path("dist").iterdir()
+              if path.is_file()
+          }
+          if len(expected) != 2:
+              raise SystemExit(f"expected two local distributions, found {sorted(expected)}")
+
+          data = None
+          for _ in range(12):
+              try:
+                  with urllib.request.urlopen(
+                      f"https://pypi.org/pypi/selfconnect/{version}/json",
+                      timeout=20,
+                  ) as response:
+                      data = json.load(response)
+                  break
+              except Exception:
+                  time.sleep(5)
+          if data is None:
+              raise SystemExit("PyPI JSON did not become available")
+
+          published = {
+              item["filename"]: (item["digests"]["sha256"], item["url"])
+              for item in data["urls"]
+          }
+          if set(published) != set(expected):
+              raise SystemExit(
+                  f"published filenames differ: expected={sorted(expected)} "
+                  f"actual={sorted(published)}"
+              )
+          for filename, digest in expected.items():
+              if published[filename][0] != digest:
+                  raise SystemExit(f"PyPI sha256 mismatch for {filename}")
+              subprocess.run(
+                  [
+                      "pypi-attestations",
+                      "verify",
+                      "pypi",
+                      "--repository",
+                      "https://github.com/rblake2320/selfconnect-ecosystem",
+                      published[filename][1],
+                  ],
+                  check=True,
+              )
+          print("PyPI hashes and Trusted Publisher attestations verified")
+          PY

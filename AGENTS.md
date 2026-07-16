@@ -30,8 +30,8 @@ Some historical submodules are now adjacent context rather than current SelfConn
 selfconnect-ecosystem/
 ├── core/           → selfconnect           (the Win32 injection SDK — start here)
 ├── enterprise/     → selfconnect-enterprise (governance + policy enforcement)
-├── federal/        → selfconnect-federal    (IL6/IL7 government tier)
-├── accord/         → selfconnect-accord     (cryptographic compliance evidence)
+├── federal/        → selfconnect-federal    (restricted-environment deployment research)
+├── accord/         → selfconnect-accord     (cryptographic evidence components)
 ├── alt/            → selfconnect-alt        (optimized Win32 fork)
 ├── mac/            → SelfConnect-Mac        (macOS port)
 ├── audio/          → selfconnect-audio      (voice/audio channel)
@@ -40,8 +40,8 @@ selfconnect-ecosystem/
 ├── provenance/     → selfconnect-provenance (chain-of-custody)
 ├── agent-wire/     → agent-wire             (inter-agent dispatch gateway)
 ├── agent-status/   → agent-status           (token burn monitor + budget enforcement)
-├── selfconnect-store/ → selfconnect-store   (SQLite event store — session/workflow/compliance queries)
-├── bpc/            → bpc-protocol           (hardware-bound credential protocol)
+├── selfconnect-store/ → selfconnect-store   (SQLite event store — session/workflow/evidence queries)
+├── bpc/            → bpc-protocol           (registered pair-key credential protocol)
 ├── tsk/            → tsk-protocol           (rotating segment key protocol)
 ├── demo/           → SelfConnect-Demo-kit-  (examples and demos)
 └── docs/                                    (cross-repo design documents)
@@ -53,9 +53,9 @@ selfconnect-ecosystem/
 
 ```
 ┌──────────────────────────────────────────┐
-│  selfconnect-store                       │  Observability & compliance queries
+│  selfconnect-store                       │  Observability & evidence queries
 ├──────────────────────────────────────────┤
-│  federal / accord                        │  Compliance & evidence
+│  federal / accord                        │  Restricted deployment & evidence
 ├──────────────────────────────────────────┤
 │  enterprise                              │  Governance, policy, audit
 ├──────────────────────────────────────────┤
@@ -87,7 +87,7 @@ send_string(win, "Hello from another agent\r", char_delay=0.02)
 
 **If you want to enforce policy on agent messages:** look at `agent-wire/`.
 
-**If you want to query session history, token costs, or export a compliance bundle:** look at `selfconnect-store/`.
+**If you want to query session history, token costs, or export evidence input:** look at `selfconnect-store/`.
 
 **If you're deploying in an enterprise or government context:** start in `enterprise/` or `federal/`.
 

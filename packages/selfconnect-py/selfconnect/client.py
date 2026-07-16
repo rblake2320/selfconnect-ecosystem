@@ -1,5 +1,5 @@
 """
-SelfConnect.ai TskClient — the primary interface for AI agent governance.
+SelfConnect.ai TskClient — an HTTP client for session, event, and budget APIs.
 
 Usage:
     from selfconnect import TskClient
@@ -27,6 +27,8 @@ from typing import Any, Dict, Generator, List, Optional
 
 import httpx
 from typing_extensions import TypedDict
+
+from ._version import __version__
 
 
 # ---------------------------------------------------------------------------
@@ -86,9 +88,9 @@ class TskClient:
 
     Provides a high-level interface for:
     - Session lifecycle management (start, end)
-    - Real-time event posting with TSK enforcement
-    - Budget monitoring and enforcement
-    - Workflow / audit trail retrieval
+    - Event posting with explicit API error handling
+    - Budget-status retrieval
+    - Server-reported workflow and hash-chain retrieval
     - Context manager and decorator patterns
 
     Parameters
@@ -127,7 +129,7 @@ class TskClient:
             headers={
                 "X-TSK-Key": self.tsk_key,
                 "Content-Type": "application/json",
-                "User-Agent": f"selfconnect-py/1.0.0",
+                "User-Agent": f"selfconnect-py/{__version__}",
             },
             timeout=self.timeout,
         )
@@ -197,7 +199,7 @@ class TskClient:
         meta: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
-        Post a single agent event to the SelfConnect audit trail.
+        Post a caller-reported event to the configured SelfConnect server.
 
         Parameters
         ----------
@@ -298,7 +300,7 @@ class TskClient:
 
     def get_session_workflow(self, session_id: str) -> Dict[str, Any]:
         """
-        Retrieve the full workflow / chain-of-custody for a session.
+        Retrieve the server-reported workflow and event hash-chain data.
 
         Parameters
         ----------
@@ -308,8 +310,9 @@ class TskClient:
         Returns
         -------
         dict
-            Workflow data including ``chain_of_custody`` (list of events with
-            cryptographic hash chain).
+            Workflow data returned by the configured server. A hash chain can
+            make retained entries tamper-evident; this method does not prove
+            completeness, immutability, signer identity, or authorization.
         """
         return self._request("GET", f"/workflows/{session_id}")
 

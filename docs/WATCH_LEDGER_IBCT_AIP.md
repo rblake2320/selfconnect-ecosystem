@@ -1,60 +1,55 @@
-# Watch Ledger Entry: IBCT/AIP Alignment for SelfConnect
+# Watch Ledger Correction: IBCT/AIP Attribution
 
-## Innovation Record
+## Correction Record
 
 | Field | Value |
 |-------|-------|
 | **ID** | INNO:selfconnect/ibct-aip-alignment |
-| **Found** | 2026-07-02 |
-| **Description** | SelfConnect's BPC (Bonded Pair Channel) and TSK (Task Signing Key) mechanisms map directly to NIST SP 800-204C IBCT (Identity-Based Communication Tokens) and AIP (Agent Identity Proofs). BPC = mutual attestation between two agents (IBCT bilateral binding). TSK = delegated authority with budget ceiling (AIP scoped capability). The provenance ledger's precommit/postcommit hash pair implements the IBCT "evidence of intent" requirement. |
-| **Disposition** | ADOPT — document alignment, no code change needed |
-| **Why** | SelfConnect already implements the functional equivalent of IBCT/AIP through BPC+TSK. Documenting this alignment strengthens patent claims (prior art defense), simplifies FedRAMP/IL4+ compliance narratives, and provides a standards-based vocabulary for enterprise sales conversations. No new code is required — this is a documentation and positioning exercise. |
-| **Platforms** | all |
-| **Revisit when** | NIST SP 800-204C finalizes (currently draft); if the final standard diverges from the current draft, re-evaluate whether BPC/TSK need structural changes or just terminology updates. |
+| **Original record** | 2026-07-02 |
+| **Reviewed** | 2026-07-16 |
+| **Disposition** | INVALIDATED |
+| **Original claim** | NIST SP 800-204C defines Identity-Based Communication Tokens (IBCTs) and Agent Identity Proofs (AIPs), and SelfConnect BPC/TSK maps directly to them. |
+| **Finding** | The cited NIST publication does not define IBCTs, AIPs, bilateral agent binding, or an "evidence of intent" requirement. |
+| **Authoritative source** | [NIST SP 800-204C, Implementation of DevSecOps for a Microservices-based Application with Service Mesh](https://doi.org/10.6028/NIST.SP.800-204C), final March 2022 |
 | **Owner** | AXIOM |
-| **Source** | Cross-project analysis (GUMBO/PKA/ultra-computer session, 2026-07-02) |
 
-## Alignment Mapping
+## Why The Prior Mapping Is Invalid
 
-| NIST Concept | SelfConnect Equivalent | Implementation Location |
-|---|---|---|
-| IBCT (Identity-Based Communication Token) | BPC (Bonded Pair Channel) | `selfconnect/self_connect.py` Layer 3 |
-| AIP (Agent Identity Proof) | TSK (Task Signing Key) | `selfconnect-store/api.py` TSK table |
-| Bilateral binding | BPC handshake via PostMessage ACK | `selfconnect/self_connect.py` send_frame/verify_delivery |
-| Scoped capability | TSK budget_tokens + is_active | `selfconnect-store/api.py` _validate_tsk() |
-| Evidence of intent | Provenance precommit_hash → postcommit_hash | `provenance/schemas/ledger_entry.schema.json` |
-| Revocation | TSK revoke (is_active=0, revoked_at) | `selfconnect-store/api.py` POST /tsk/revoke |
-| Audit trail | Hash-chained JSONL ledger + EventStore | `agent-wire/wire-dispatch.jsonl` + `selfconnect-store/store.db` |
+NIST SP 800-204C addresses DevSecOps practices for cloud-native,
+microservices-based applications and service-mesh environments. Its subject
+matter includes application code, application-services code, infrastructure as
+code, policy as code, observability as code, CI/CD, and continuous
+authorization considerations.
 
-## Compliance Narrative (for enterprise/government sales)
+The publication is not an AI-agent identity protocol specification. The
+original record attributed terminology and requirements to the document that
+are not present in the cited source. The related statements about mutual
+attestation, scoped delegation, non-repudiation, external PKI, FedRAMP, and DoD
+deployment therefore cannot be supported by NIST SP 800-204C.
 
-> SelfConnect implements the functional equivalent of NIST SP 800-204C's
-> Identity-Based Communication Tokens (IBCTs) through its Bonded Pair Channel
-> (BPC) mechanism, and Agent Identity Proofs (AIPs) through its Task Signing
-> Key (TSK) system. Every agent-to-agent communication is mutually attested
-> via BPC handshake, budget-bounded via TSK enforcement, and recorded in a
-> hash-chained provenance ledger with precommit/postcommit evidence pairs.
-> This architecture satisfies the intent-attestation, scoped-delegation, and
-> non-repudiation requirements of IBCT/AIP without requiring external PKI
-> infrastructure — all cryptographic material is generated and stored locally
-> via Windows DPAPI, enabling air-gapped IL4-IL7 deployment.
+## What Remains Available For Separate Evaluation
 
-## Action Items
+SelfConnect repositories contain independently testable mechanisms involving:
 
-1. **Add this mapping to the main SelfConnect README** under a "Standards Alignment" section (5 min)
-2. **Reference in patent filing** as evidence of standards compliance (strengthens non-obviousness argument)
-3. **Update the compliance bundle** (`GET /compliance/bundle`) to include IBCT/AIP mapping in the output JSON
-4. **Revisit** when NIST SP 800-204C moves from draft to final publication
+- registered pair-key authentication in BPC;
+- rotating credential segments in TSK;
+- configured request-freshness and replay controls;
+- server-side budget fields and revocation state;
+- retained hash-chain and provenance data.
 
-## CLI command to record in PKA watch ledger
+Those mechanisms must be described from their implementation, named tests, and
+deployment configuration. They are not NIST SP 800-204C conformance evidence,
+and this correction does not assign them to any replacement standard.
 
-```bash
-python scripts/pka_watch_ledger.py decide "INNO:selfconnect/ibct-aip-alignment" \
-  --status ADOPTED \
-  --decision "ADOPT" \
-  --description "BPC+TSK maps to NIST SP 800-204C IBCT/AIP — document alignment, no code change" \
-  --reason "Strengthens patent claims, simplifies FedRAMP narrative, standards vocabulary for enterprise" \
-  --platforms "all" \
-  --revisit-when "NIST SP 800-204C finalizes" \
-  --owner AXIOM
-```
+## Required Handling
+
+1. Do not cite this record as standards alignment, compliance evidence, prior
+   art, or patent evidence.
+2. Remove or correct any downstream statement that repeats the invalid
+   SP 800-204C/IBCT/AIP attribution.
+3. If an authoritative publication defining IBCT or AIP terminology is later
+   identified, create a new dated comparison that quotes the actual
+   definitions, names the implementation evidence, and records the mapping as
+   preliminary pending qualified review.
+4. Preserve this correction so the reason for removing the earlier mapping is
+   auditable rather than silently rewriting history.
