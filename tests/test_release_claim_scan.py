@@ -180,6 +180,7 @@ def test_fetch_releases_production_decode_params():
     kwargs = mock_run.call_args.kwargs
     assert kwargs.get("encoding") == "utf-8"
     assert kwargs.get("errors") == "strict"
+    assert kwargs.get("text") is True
     assert releases[0]["body"] == fake_body  # non-ASCII survives the path
 
 
