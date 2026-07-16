@@ -2,9 +2,11 @@
   "name": "selfconnect-ecosystem",
   "private": true,
   "version": "0.0.0",
-  "description": "SelfConnect monorepo — TSK client, MCP server, and Python SDK",
+  "description": "SelfConnect monorepo \u2014 TSK client, MCP server, and Python SDK",
   "scripts": {
     "build": "pnpm -r run build",
-    "test": "pnpm -r run test"
+    "test": "pnpm -r run test",
+    "readiness": "python scripts/readiness.py --markdown",
+    "test:readiness": "python -m unittest discover -s tests -p test_readiness.py"
   }
 }

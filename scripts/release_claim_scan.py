@@ -18,10 +18,15 @@ Exit codes: 0 = all clean or bounded, 1 = violations, 2 = fetch/parse error.
 from __future__ import annotations
 
 import argparse
+import datetime
+import hashlib
 import json
+import pathlib
 import re
 import subprocess
 import sys
+
+DEFAULT_ALLOWLIST = pathlib.Path(__file__).with_name("claim_scan_allowlist.json")
 
 CLAIM_PATTERNS: list[tuple[str, str]] = [
     (r"\bIL\s*[4-7]\s*[-/–]\s*[4-7]\b", "DoD Impact Level range claim (e.g. IL4-7)"),
@@ -94,7 +99,38 @@ def leading_notice_block(body: str) -> str:
     return head
 
 
-def scan_release(release: dict) -> dict:
+def load_allowlist(path: pathlib.Path | str | None = None) -> dict:
+    """Map (repo, tag) -> allowlist entry. Missing file = empty allowlist."""
+    p = pathlib.Path(path) if path else DEFAULT_ALLOWLIST
+    if not p.exists():
+        return {}
+    with open(p, encoding="utf-8") as fh:
+        data = json.load(fh)
+    return {(e["repo"], e["tag"]): e for e in data.get("entries", [])}
+
+
+def allowlist_verdict(entry: dict | None, body: str, today: datetime.date | None = None) -> tuple[bool, str]:
+    """Bounded status is an exact, expiring exception — not a blanket notice.
+
+    Requires an allowlist entry for this repo@tag whose body_sha256 matches
+    the CURRENT body (so any later edit — e.g. new claims appended under the
+    old notice — voids the exception) and whose review_by date has not
+    passed (so every exception gets re-reviewed, enforced by the daily CI
+    run).
+    """
+    if entry is None:
+        return False, "release not in claim_scan_allowlist.json (bounded status requires an exact reviewed exception)"
+    digest = hashlib.sha256((body or "").encode("utf-8")).hexdigest()
+    if digest != entry.get("body_sha256"):
+        return False, "body changed since allowlist review (sha256 mismatch — new content is unreviewed)"
+    today = today or datetime.date.today()
+    review_by = datetime.date.fromisoformat(entry.get("review_by", "1970-01-01"))
+    if today > review_by:
+        return False, f"allowlist exception expired (review_by {review_by.isoformat()})"
+    return True, "exact allowlisted exception (sha256 match, within review window)"
+
+
+def scan_release(release: dict, repo: str = "?", allowlist: dict | None = None) -> dict:
     title = release.get("name") or ""
     body = release.get("body") or ""
     tag = release.get("tag_name") or "?"
@@ -103,11 +139,17 @@ def scan_release(release: dict) -> dict:
     # Every required notice element (marker, retraction, ISO date, boundary
     # link) must validate inside the LEADING blockquote notice: elements
     # scattered after claims can never assemble a valid notice.
-    bounded = bool(body_hits) and notice_position(leading_notice_block(body)) >= 0
+    has_leading_notice = notice_position(leading_notice_block(body)) >= 0
+    entry = (allowlist or {}).get((repo, tag))
+    allowed, allow_reason = allowlist_verdict(entry, body)
+    bounded = bool(body_hits) and has_leading_notice and allowed
     if title_hits:
         status = "fail"
         reason = "title carries claims (titles must always be clean)"
-    elif body_hits and not bounded and notice_position(body) >= 0:
+    elif body_hits and has_leading_notice and not allowed:
+        status = "fail"
+        reason = allow_reason
+    elif body_hits and not has_leading_notice and notice_position(body) >= 0:
         status = "fail"
         reason = "notice elements not in a valid leading notice block (bypass attempt)"
     elif body_hits and not bounded:
@@ -115,7 +157,7 @@ def scan_release(release: dict) -> dict:
         reason = "body carries claims with no valid dated correction notice preceding them"
     elif body_hits and bounded:
         status = "bounded"
-        reason = "historical claims retained under a dated bounded correction notice"
+        reason = f"historical claims under dated leading notice; {allow_reason}"
     else:
         status = "clean"
         reason = "no claim patterns found"
@@ -143,7 +185,14 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--repo", action="append", default=[], help="owner/name (repeatable)")
     ap.add_argument("--json-file", help="offline mode: JSON file with {repo: [releases...]}")
+    ap.add_argument("--allowlist", help=f"allowlist JSON path (default: {DEFAULT_ALLOWLIST.name})")
     args = ap.parse_args(argv)
+
+    try:
+        allowlist = load_allowlist(args.allowlist)
+    except Exception as exc:  # noqa: BLE001 - malformed allowlist must fail closed
+        print(f"ERROR: allowlist unreadable: {exc}", file=sys.stderr)
+        return 2
 
     sources: dict[str, list[dict]] = {}
     try:
@@ -165,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{repo}: no releases (clean by absence)")
             continue
         for release in releases:
-            result = scan_release(release)
+            result = scan_release(release, repo=repo, allowlist=allowlist)
             flag = {"clean": "OK ", "bounded": "OK*", "fail": "FAIL"}[result["status"]]
             print(f"{flag} {repo}@{result['tag']} [{result['status']}] {result['reason']}")
             for hit in result["title_hits"] + result["body_hits"]:

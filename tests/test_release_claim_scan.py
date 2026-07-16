@@ -1,11 +1,15 @@
 """Tests for scripts/release_claim_scan.py — the release title/body claim gate."""
+import datetime
+import hashlib
 import json
 import pathlib
 import subprocess
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "scripts"))
-from release_claim_scan import find_claims, has_bounded_notice, scan_release  # noqa: E402
+from release_claim_scan import (  # noqa: E402
+    allowlist_verdict, find_claims, has_bounded_notice, scan_release,
+)
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "release_claim_scan.py"
 
@@ -17,6 +21,15 @@ OVERCLAIM_BODY = (
     "All changes are production-ready and comply with IL4/5/6/7 requirements "
     "(NIST SP 800-53 High, FIPS 140-2/3, zero-trust architecture)."
 )
+
+
+def allow(repo, tag, body, review_by="2099-01-01"):
+    """Allowlist fixture with the exact sha of the given body."""
+    return {(repo, tag): {
+        "repo": repo, "tag": tag,
+        "body_sha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+        "corrected": "2026-07-16", "review_by": review_by, "reason": "test",
+    }}
 
 
 def test_clean_release_passes():
@@ -43,8 +56,9 @@ def test_overclaim_body_without_notice_fails():
 
 
 def test_corrected_release_with_bounded_notice_passes():
-    r = scan_release({"tag_name": "v0.2.0", "name": "v0.2.0 — Security Release",
-                      "body": NOTICE + OVERCLAIM_BODY})
+    body = NOTICE + OVERCLAIM_BODY
+    r = scan_release({"tag_name": "v0.2.0", "name": "v0.2.0 — Security Release", "body": body},
+                     repo="o/r", allowlist=allow("o/r", "v0.2.0", body))
     assert r["status"] == "bounded"
 
 
@@ -83,8 +97,42 @@ def test_split_marker_date_after_claim_bypass_fails():
 
 
 def test_all_elements_before_claim_passes():
-    r = scan_release({"tag_name": "v1", "name": "v1", "body": NOTICE + OVERCLAIM_BODY})
+    body = NOTICE + OVERCLAIM_BODY
+    r = scan_release({"tag_name": "v1", "name": "v1", "body": body},
+                     repo="o/r", allowlist=allow("o/r", "v1", body))
     assert r["status"] == "bounded"
+
+
+def test_valid_notice_without_allowlist_entry_fails():
+    body = NOTICE + OVERCLAIM_BODY
+    r = scan_release({"tag_name": "v1", "name": "v1", "body": body}, repo="o/r", allowlist={})
+    assert r["status"] == "fail"
+    assert "allowlist" in r["reason"]
+
+
+def test_body_edited_after_allowlist_review_fails():
+    body = NOTICE + OVERCLAIM_BODY
+    al = allow("o/r", "v1", body)
+    tampered = body + "\n\nNEW: also production-ready for IL4-7 workloads."
+    r = scan_release({"tag_name": "v1", "name": "v1", "body": tampered}, repo="o/r", allowlist=al)
+    assert r["status"] == "fail"
+    assert "sha256 mismatch" in r["reason"]
+
+
+def test_expired_allowlist_exception_fails():
+    body = NOTICE + OVERCLAIM_BODY
+    al = allow("o/r", "v1", body, review_by="2026-01-01")
+    r = scan_release({"tag_name": "v1", "name": "v1", "body": body}, repo="o/r", allowlist=al)
+    assert r["status"] == "fail"
+    assert "expired" in r["reason"]
+
+
+def test_allowlist_verdict_helper_dates():
+    entry = {"body_sha256": hashlib.sha256(b"x").hexdigest(), "review_by": "2026-06-01"}
+    ok, _ = allowlist_verdict(entry, "x", today=datetime.date(2026, 5, 31))
+    assert ok
+    ok, reason = allowlist_verdict(entry, "x", today=datetime.date(2026, 6, 2))
+    assert not ok and "expired" in reason
 
 
 def test_find_claims_is_case_insensitive():
