@@ -70,6 +70,18 @@
 
 ## 2026-07-16
 
+- Repointed the `provenance` submodule to rewritten commit
+  `dda8d3511713503e51e486004e57563775df4410` after the provenance signing-key
+  incident response. The rewrite removed the three revoked private-key paths
+  from every commit reachable from `selfconnect-provenance/master`; the
+  repository's protected branch and required `test` check were restored after
+  the bounded force update.
+- The rewritten provenance tree is content-equivalent to the already reviewed
+  hardened tree. This change updates only the gitlink so fresh ecosystem
+  clones no longer request the superseded key-bearing history.
+
+## 2026-07-16
+
 - Added `scripts/release_claim_scan.py`: executable portfolio gate that scans
   public GitHub release titles and bodies (BPC, TSK, Enterprise) for
   compliance/authorization claims a repository cannot self-establish (FIPS

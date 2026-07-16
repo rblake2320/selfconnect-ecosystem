@@ -3,6 +3,11 @@
 Deliberately out of scope for the release claim scan, recorded so absence is
 not mistaken for oversight:
 
+- **GitHub hidden pull-request ref purge**: the public provenance `master`
+  history and ecosystem gitlink have been rewritten, but GitHub keeps
+  `refs/pull/2/head` read-only. GitHub Support must purge the hidden ref and
+  cached object after confirming the branch rewrite. This is not treated as
+  closed merely because normal clones no longer reach the old object.
 - **Existing PyPI 1.1.0 replacement/yank**: source and artifact gates now cover
   future Python package claims, but repository code cannot publish or yank a
   public package. The GitHub `pypi` environment and `selfconnect-py-v*` tag
