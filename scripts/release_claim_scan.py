@@ -74,23 +74,42 @@ def has_bounded_notice(body: str) -> bool:
     return notice_position(body) >= 0
 
 
+def leading_notice_block(body: str) -> str:
+    """The blockquote notice that must OPEN the body, up to the first ---.
+
+    Returns "" unless the body's first non-blank content is a '>' blockquote
+    and a '---' separator follows. Only elements inside this leading block
+    count toward notice validity: scattering marker/date/link elsewhere in
+    the body can never assemble a valid notice (split-element bypass), and a
+    notice appended after claims is not leading (order bypass). Claims quoted
+    INSIDE the block are the retracted ones by construction.
+    """
+    text = body or ""
+    sep = text.find("\n---")
+    if sep < 0:
+        return ""
+    head = text[:sep]
+    if not head.lstrip().startswith(">"):
+        return ""
+    return head
+
+
 def scan_release(release: dict) -> dict:
     title = release.get("name") or ""
     body = release.get("body") or ""
     tag = release.get("tag_name") or "?"
     title_hits = find_claims(title)
     body_hits = find_claims(body)
-    earliest_claim = min((h["offset"] for h in body_hits), default=-1)
     # Every required notice element (marker, retraction, ISO date, boundary
-    # link) must appear BEFORE the earliest claim: validate the prefix only,
-    # so scattering elements after the claims cannot assemble a valid notice.
-    bounded = bool(body_hits) and notice_position(body[:earliest_claim]) >= 0
+    # link) must validate inside the LEADING blockquote notice: elements
+    # scattered after claims can never assemble a valid notice.
+    bounded = bool(body_hits) and notice_position(leading_notice_block(body)) >= 0
     if title_hits:
         status = "fail"
         reason = "title carries claims (titles must always be clean)"
     elif body_hits and not bounded and notice_position(body) >= 0:
         status = "fail"
-        reason = "notice elements incomplete before the first claim (bypass attempt)"
+        reason = "notice elements not in a valid leading notice block (bypass attempt)"
     elif body_hits and not bounded:
         status = "fail"
         reason = "body carries claims with no valid dated correction notice preceding them"
