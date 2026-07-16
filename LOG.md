@@ -26,6 +26,10 @@
 - Added Python 3.9-3.13 unit CI and a 3.12 artifact lane with Ruff, build,
   Twine metadata validation, clean-wheel smoke testing, and a resolved-
   dependency audit that excludes only the unpublished local package.
+- Hosted 3.9/3.10 CI exposed a test-only dotted-import ambiguity caused by the
+  `selfconnect.cli` package exporting a function named `main`. CLI tests now
+  patch the explicitly imported module object, so the same assertion runs
+  consistently across supported Python versions.
 - Added a disabled-until-owner-configured Trusted Publishing workflow. It
   requires the protected `pypi` environment activation variable and matching
   PyPI OIDC publisher, then verifies published hashes and attestations.
