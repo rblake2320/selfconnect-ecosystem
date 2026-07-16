@@ -112,9 +112,11 @@ def load_allowlist(path: pathlib.Path | str | None = None) -> dict:
 def canonical_body(body: str) -> str:
     """Normalize newlines (CRLF/CR -> LF) before hashing.
 
-    The GitHub API serves release bodies with CRLF on some paths and LF on
-    others (hosted Ubuntu runners saw CRLF where local Windows gh returned
-    LF). Hash the canonical form so the same text always matches; real edits
+    Defensive cross-platform canonicalization only: the same text must hash
+    identically regardless of line-ending convention. NOTE: the 2026-07-16
+    hosted-vs-local hash mismatch incident was NOT newlines — it was Windows
+    cp1252 locale decoding of gh's UTF-8 output mangling em dashes (see
+    fetch_releases, which pins encoding=utf-8 errors=strict). Real edits
     still change the hash.
     """
     return (body or "").replace("\r\n", "\n").replace("\r", "\n")
@@ -195,8 +197,11 @@ def fetch_releases(repo: str) -> list[dict]:
     out = subprocess.run(
         ["gh", "api", f"repos/{repo}/releases"],
         # encoding pinned: Windows locale decode (cp1252) silently mangles
-        # unicode in bodies, which changes the canonical hash cross-platform
-        capture_output=True, text=True, encoding="utf-8", timeout=60,
+        # unicode in bodies, which changes the canonical hash cross-platform.
+        # errors=strict fails closed on any undecodable byte (exit 2 via the
+        # caller's exception path) instead of hashing corrupted text.
+        capture_output=True, text=True, encoding="utf-8", errors="strict",
+        timeout=60,
     )
     if out.returncode != 0:
         raise RuntimeError(f"gh api failed for {repo}: {out.stderr.strip()[:200]}")

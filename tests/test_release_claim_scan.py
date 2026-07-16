@@ -147,6 +147,24 @@ def test_crlf_and_lf_bodies_hash_identically():
         assert r["status"] == "bounded", r["reason"]
 
 
+def test_non_ascii_subprocess_decode_regression():
+    # The cp1252 bug: Windows locale decode turned each em dash (3 utf-8
+    # bytes) into 3 mojibake chars, changing canonical length and hash.
+    # Our exact decode params must round-trip non-ASCII losslessly.
+    from release_claim_scan import body_digest, canonical_body
+    em = "Security Release — IL boundary — retracted — dated — bounded — notice —"
+    proc = subprocess.run(
+        [sys.executable, "-X", "utf8", "-c", f"print({em!r}, end='')"],
+        capture_output=True, text=True, encoding="utf-8", errors="strict",
+    )
+    assert proc.stdout == em
+    assert len(canonical_body(proc.stdout)) == len(em)
+    assert body_digest(proc.stdout) == body_digest(em)
+    # mangled variant (what cp1252 decode produced) must NOT match
+    mangled = em.encode("utf-8").decode("cp1252")
+    assert body_digest(mangled) != body_digest(em)
+
+
 def test_sha_mismatch_reason_has_safe_diagnostics():
     body = NOTICE + OVERCLAIM_BODY
     al = allow("o/r", "v1", body)

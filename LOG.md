@@ -1,5 +1,20 @@
 # Change Log
 
+## 2026-07-16 (incident record — hosted hash mismatch)
+
+- Root cause: Windows cp1252 locale decoding of gh's UTF-8 stdout mangled
+  em dashes (3 bytes -> 3 mojibake chars each) before hashing, so locally
+  generated allowlist hashes disagreed with the correctly-decoded hosted
+  runner. NOT a newline issue: CRLF->LF normalization (bf23347) is retained
+  as defensive cross-platform canonicalization only, and the earlier CRLF
+  attribution in that commit message is superseded by this record.
+- Fix: fetch_releases pins encoding=utf-8 errors=strict (fail-closed on
+  undecodable bytes); allowlist regenerated from correctly decoded bodies
+  (BPC 06c4595c..., len 5092; Enterprise 5ef3287d..., len 6246 — verified
+  byte-identical to hosted actuals by both agents independently).
+- Regression: non-ASCII subprocess decode round-trip test; mangled-variant
+  hash must not match.
+
 ## 2026-07-16
 
 - Added `scripts/release_claim_scan.py`: executable portfolio gate that scans
