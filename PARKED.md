@@ -15,3 +15,8 @@ not mistaken for oversight:
 - **Deployment/authorization evidence** (ATO, WORM custody, assessor
   opinions): external by nature; no repository tool can create it. Tracked in
   the Enterprise control catalog as explicitly incomplete.
+- **Legacy tracked bytecode in packages/selfconnect-py/** (5 .pyc files from
+  commit b5fe59b, the Python SDK import): predates this branch; removing it
+  belongs to an SDK-owned cleanup, not the claim-gate PR. This branch removes
+  only the bytecode it introduced (scripts/__pycache__). .gitignore now
+  prevents new bytecode from being tracked.
