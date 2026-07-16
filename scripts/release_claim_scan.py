@@ -80,15 +80,17 @@ def scan_release(release: dict) -> dict:
     tag = release.get("tag_name") or "?"
     title_hits = find_claims(title)
     body_hits = find_claims(body)
-    npos = notice_position(body)
     earliest_claim = min((h["offset"] for h in body_hits), default=-1)
-    bounded = npos >= 0 and (earliest_claim < 0 or npos < earliest_claim)
+    # Every required notice element (marker, retraction, ISO date, boundary
+    # link) must appear BEFORE the earliest claim: validate the prefix only,
+    # so scattering elements after the claims cannot assemble a valid notice.
+    bounded = bool(body_hits) and notice_position(body[:earliest_claim]) >= 0
     if title_hits:
         status = "fail"
         reason = "title carries claims (titles must always be clean)"
-    elif body_hits and npos >= 0 and not bounded:
+    elif body_hits and not bounded and notice_position(body) >= 0:
         status = "fail"
-        reason = "correction notice appears after the first claim (bypass attempt)"
+        reason = "notice elements incomplete before the first claim (bypass attempt)"
     elif body_hits and not bounded:
         status = "fail"
         reason = "body carries claims with no valid dated correction notice preceding them"

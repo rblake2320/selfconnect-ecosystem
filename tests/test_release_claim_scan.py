@@ -71,7 +71,20 @@ def test_notice_after_claim_bypass_fails():
     body = OVERCLAIM_BODY + "\n\n" + NOTICE  # marker appended AFTER the claims
     r = scan_release({"tag_name": "v1", "name": "v1", "body": body})
     assert r["status"] == "fail"
-    assert "after" in r["reason"]
+
+
+def test_split_marker_date_after_claim_bypass_fails():
+    # Fake marker before the claim; retraction/date/link scattered after it.
+    body = ("Claim correction pending.\n\n" + OVERCLAIM_BODY +
+            "\n\nretracted 2026-07-16, see SECURITY.md and PARKED.md")
+    r = scan_release({"tag_name": "v1", "name": "v1", "body": body})
+    assert r["status"] == "fail"
+    assert "bypass" in r["reason"] or "no valid" in r["reason"]
+
+
+def test_all_elements_before_claim_passes():
+    r = scan_release({"tag_name": "v1", "name": "v1", "body": NOTICE + OVERCLAIM_BODY})
+    assert r["status"] == "bounded"
 
 
 def test_find_claims_is_case_insensitive():
