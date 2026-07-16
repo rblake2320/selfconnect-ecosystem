@@ -1,5 +1,50 @@
 # Why
 
+## Readiness status and readiness evidence must be different checks
+
+The old hosted workflow always returned success because it ran the report
+without the opt-in failure flag. The hosted runner also lacked the sibling
+repositories, private cross-repository permissions, provider credentials, and
+TPM capability that the report expected. A green status therefore meant only
+that the script printed output, even when the output said the system was not
+ready.
+
+The correct composition is:
+
+- hosted CI verifies the checker contract and adversarial behavior;
+- a separately named live gate evaluates real evidence on a provisioned host;
+- the live checker fails by default;
+- diagnostic output can exit zero only when explicitly marked report-only; and
+- configuration presence is never substituted for a live response or signed
+  artifact.
+
+This prevents a workflow badge or required status from being cited as runtime
+readiness evidence.
+
+The hosted job keeps the required check name `readiness` so existing branch
+protection continues to enforce the contract without administrative bypass.
+The separate live job is named `live-readiness`; its result is evidence only
+for the provisioned runner and the exact evaluation timestamp.
+
+Repository and artifact identity are verified independently of self-reported
+metadata. Repository checks bind canonical remote URL plus default branch to a
+live remote SHA. MSI checks bind current workflow head and artifact hashes,
+then verify Authenticode status, the expected signer certificate fingerprint,
+and timestamp presence. A manifest cannot declare itself signed into a PASS.
+
+## Security claims belong to the component and named proposition
+
+This umbrella repository contains clients and adapters, not the TSK or BPC
+protocol verifier implementations. Client tests can establish request shape,
+response mapping, and adapter behavior. They cannot establish key entropy,
+replay resistance, HMAC secrecy, immutable evidence, deployment authorization,
+or absence of vulnerabilities.
+
+`SECURITY.md` therefore binds each maintained proposition to an executable file
+in the current tree and links protocol claims to their owning repositories.
+Historical analysis remains non-authoritative until independently rebound to
+current code and tests.
+
 ## Release claim scan (2026-07-16)
 
 Test count is not claim governance. The 2026-07-16 audit showed all three

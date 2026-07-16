@@ -1,123 +1,160 @@
-# Security Properties — selfconnect-ecosystem
+# Security Policy and Evidence Boundary
 
-This document covers the security posture of the selfconnect-ecosystem monorepo, which contains the TSK (Trust Session Key) protocol, the selfconnect Python SDK, and the TSK MCP server. For the BPC (Binary Pair Credential) protocol, see [bpc-protocol/SECURITY.md](https://github.com/rblake2320/bpc-protocol/blob/main/SECURITY.md). For the enterprise governance engine, see [selfconnect-enterprise/SECURITY.md](https://github.com/rblake2320/selfconnect-enterprise/blob/main/SECURITY.md).
+This file is the maintained security boundary for `selfconnect-ecosystem`.
+It describes what the current repository establishes, what remains dependent
+on another repository or deployment, and how to report a suspected
+vulnerability privately.
 
----
+The repository is an umbrella workspace. Its directly maintained executable
+code is primarily:
 
-## What This System Guarantees
+- the Python API client, CLI, framework adapters, and MCP adapter under
+  `packages/selfconnect-py`;
+- the TypeScript HTTP client under `packages/tsk-client`; and
+- the TypeScript MCP adapter under `packages/tsk-mcp`.
 
-### 1. TSK Key Integrity
+The TSK protocol verifier, BPC verifier, enterprise policy engine, operating
+system transport, deployed API, and evidence store are separate components.
+Their properties cannot be inferred from a green ecosystem client test.
 
-Every Trust Session Key is a 52-character base64url string derived from 256 bits of cryptographically secure entropy (`crypto.randomBytes(32)`). The key space is 64^52 = 2^312 — brute-force is computationally impossible with any known or theoretically possible classical hardware.
+Component policies are pinned to the exact commits recorded by this umbrella
+repository. They are not statements about newer component revisions:
 
-**Proven by:** `test-suite.ts` — 39 assertions covering key generation, validation, expiry, and replay protection.
+- [TSK protocol at `abbcb210`](https://github.com/rblake2320/tsk-protocol/blob/abbcb210fe77fc9ec00763138caa007be57ef5d3/SECURITY.md)
+- [BPC protocol at `2a23fcfb`](https://github.com/rblake2320/bpc-protocol/blob/2a23fcfb5f17d95e84c4de21363fda9ca141a225/SECURITY.md)
+- [Enterprise engine at `57d020ca`](https://github.com/rblake2320/selfconnect-enterprise/blob/57d020caf28a0489c08c2cfc316ab392cef1a62b/SECURITY.md)
 
-### 2. Replay Protection
+The pinned core transport commit does not contain a `SECURITY.md`; this
+composition therefore does not cite one as component evidence.
 
-TSK keys include a time-window component. Keys are valid only within a configurable window (default: ±30 seconds). A key captured and replayed outside the window is rejected. The replay window is tested with both positive (within window) and negative (outside window) cases.
+## Executable Evidence in This Repository
 
-**Proven by:** `attack-suite.mts` — Attack 2 (replay attack): tests key validity at +25s (accepted) and +2 min (rejected).
+The current unit tests narrowly establish these propositions:
 
-### 3. HMAC Secret Confidentiality
-
-The HMAC secret used for key validation is never transmitted. An attacker with full network visibility cannot recover the secret from observed keys. 50,000 brute-force attempts against the 256-bit secret space are verified to fail.
-
-**Proven by:** `attack-suite.mts` — Attack 4 (HMAC secret brute force): 50,000 attempts, 0 breaches.
-
-### 4. Structural Unforgeability
-
-An attacker with knowledge of the static portions of a TSK key cannot forge a valid key by guessing the rotating portion. 10,000 forge attempts with known static + random rotating components are verified to fail.
-
-**Proven by:** `attack-suite.mts` — Attack 3 (structural analysis + forge): 10,000+ attempts, 0 breaches.
-
-### 5. Flood / DoS Resistance
-
-100,000 rapid validation attempts do not degrade the validation function or produce false positives. The validator is stateless and O(1) per call.
-
-**Proven by:** `attack-suite.mts` — Attack 10 (flood): 100,000 rapid attempts, 0 breaches, no performance degradation.
-
-### 6. Ultra Bridge Identity Binding
-
-When TSK and BPC are used together via `verifyUltraRequest`, both layers must pass independently and the verified identities must match. A mismatch between the BPC `pairId` and the TSK `clientId` is an immediate rejection — there is no code path that accepts a request where the two layers identify different principals.
-
-**Proven by:** `ultra-bridge.test.ts` — 11 assertions covering valid ultra requests, identity mismatch rejection, BPC-only failure, TSK-only failure, and combined failure modes.
-
----
-
-## What This System Does Not Guarantee
-
-**Transport security is out of scope.** TSK provides application-layer key validation. It does not provide transport encryption. TLS must be enforced at the infrastructure layer.
-
-**Key storage is out of scope.** TSK keys are generated and validated by the server. The security of key storage (database, environment variable, secrets manager) depends entirely on the host environment.
-
-**Rate limiting is not built in.** The TSK validator is a pure function. Rate limiting must be implemented at the server layer (e.g., Express middleware, API gateway).
-
----
-
-## Known Vulnerabilities & Remediation Record
-
-### CVE-2021-44531 / CVE-2021-44532 — Node.js TLS Certificate Validation
-
-| Field | Value |
+| Proposition | Evidence |
 |---|---|
-| **CVEs** | CVE-2021-44531, CVE-2021-44532 |
-| **Affected** | Node.js < 17.3.0 / 16.13.2 / 12.22.9 |
-| **Severity** | High |
-| **Type** | TLS certificate validation bypass |
+| The Python client places its configured bearer credential in the expected request header and maps selected HTTP responses to typed client exceptions. | `packages/selfconnect-py/tests/test_client.py` |
+| The Python LangChain adapter can be configured either to continue after an event-delivery error or to propagate it. The default is fail-open telemetry. | `packages/selfconnect-py/tests/test_langchain_handler.py` |
+| The Python CLI and MCP handlers expose the currently documented command/tool surface under mocked client responses. | `packages/selfconnect-py/tests/test_cli.py`, `packages/selfconnect-py/tests/test_mcp.py` |
+| The TypeScript client validates required configuration shape and exposes its current error types under unit tests. | `packages/tsk-client/tests/tsk-client.test.ts` |
+| The TypeScript MCP adapter exports the tested tool definitions and rejects missing local credential configuration. | `packages/tsk-mcp/tests/tsk-mcp.test.ts` |
+| The readiness contract rejects mocked unavailable, stale, wrong-head, wrong-repository, wrong-branch, contradictory, or invalid-signature conditions and requires the live Authenticode verifier boundary. | `tests/test_readiness.py` |
+| Local evidence paths and commit-pinned component-policy reference structure are checked, and the hosted contract resolves those external references through the GitHub contents API. | `tests/test_security_policy.py`, `tests/test_security_reference_check.py`, `scripts/security_reference_check.py` |
 
-**Scope assessment.** These CVEs appear in `@types/node` documentation as historical references to Node.js TLS behavior. They are not exploitable in this codebase — TSK does not perform TLS certificate validation (that is delegated to the Node.js runtime and infrastructure layer). The references appear in type definition files only.
+These tests do not prove the absence of vulnerabilities. Mocked client tests do
+not establish live server enforcement. Test counts are intentionally not
+copied into this policy because counts change and do not describe assurance.
+Use the test report for the commit being evaluated.
 
-**Remediation.** Use Node.js >= 17.3.0 / 16.13.2 / 12.22.9. The TSK package itself does not perform certificate validation and is not directly affected.
+## Bounded Security Properties
 
----
+### Client credential handling
 
-### CVE-2026-4747 — FreeBSD kgssapi KASLR Bypass (Threat Model Reference)
+The clients present a configured TSK value to a server. Local constructor
+checks establish only the accepted client-side format; they do not establish
+entropy, issuer authenticity, hardware binding, revocation, or resistance to
+credential theft. A TSK used by these clients is a bearer credential unless
+the deployed server and gateway add separately verified protections.
 
-| Field | Value |
-|---|---|
-| **CVE** | CVE-2026-4747 |
-| **Affected** | FreeBSD `kgssapi.ko` kernel module |
-| **Severity** | Critical (RCE) |
-| **Discovered by** | Anthropic Claude Mythos Preview (autonomous zero-day discovery) |
-| **Type** | Kernel RCE — 17-year-old bounds check error + KASLR bypass |
+### Server-reported decisions and evidence
 
-**Scope assessment.** This CVE is referenced in `tsk/SECURITY-POSITION.md` as a threat model reference, not as a vulnerability in this codebase. TSK/BPC/Ultra are a different target class: pure TypeScript/Python with no C code, no manual memory management, no kernel modules, and no KASLR dependency.
+The clients can surface server responses for authorization, policy, budget,
+session, and retained event data. The client code does not independently prove
+that the server:
 
-**Relevance.** CVE-2026-4747 was the first publicly documented autonomous zero-day discovery by an AI system. It informs the threat model for AI-assisted attacks against this codebase. The TSK architecture is designed to be resistant to this class of attack: the attack surface is minimal (pure functions, no native bindings), and the cryptographic primitives are post-quantum migration-ready.
+- observed every relevant action;
+- rejected every unauthorized action;
+- generated or protected a credential correctly;
+- prevented replay;
+- preserved an append-only or externally anchored history; or
+- produced evidence acceptable to an assessor, court, regulator, or
+  authorizing official.
 
-**Reference.** `tsk/SECURITY-POSITION.md` — "Why TSK/BPC/Ultra Are a Different Target Class."
+Those propositions require evidence from the owning server/protocol repository
+and the actual deployment boundary.
 
----
+### Transport and endpoint security
 
-## Test Coverage Summary
+TLS verification is enabled by default in the TypeScript client, but transport
+security depends on the runtime, certificate validation, proxy path, and
+deployment configuration. Development options that disable certificate
+verification must not be used as production evidence.
 
-| Package | Test files | Total tests | Attack scenarios |
-|---|---|---|---|
-| `tsk-protocol` | `test-suite.ts`, `attack-suite.mts`, `adversarial-proof.ts`, `ultra-bridge.test.ts`, `redteam-*.test.ts` | 192 | 12 attack scenarios, 389k+ attempts |
-| `selfconnect-py` | `test_client.py`, `test_cli.py`, `test_mcp.py` | 64 | — |
-| `tsk-mcp` | `tsk-mcp.test.ts` | 7 | — |
-| **Total** | | **263** | |
+Endpoint compromise, operating-system security, secret custody, database
+access, denial-of-service capacity, disaster recovery, and key lifecycle are
+outside the assurance provided by this client repository.
 
-### Attack Suite Summary (attack-suite.mts)
+### Compliance and government use
 
-| Attack | Attempts | Result |
-|---|---|---|
-| Brute force (random keys) | 100,000 | 0 breaches |
-| Replay attack | ~120 time offsets | 0 breaches |
-| Structural analysis + forge | 11,000+ | 0 breaches |
-| HMAC secret brute force | 50,000 | 0 breaches |
-| Checksum forgery | 10,000 | 0 breaches |
-| HOTP lookahead | 4,000 | 0 breaches |
-| Collision attack | 50,000 | 0 breaches |
-| Timing attack | 50,000 | 0 breaches |
-| Single-char mutation (52×63) | 3,276 | 0 breaches |
-| Flood / DoS | 100,000 | 0 breaches |
-| Replay window | 50,000 | 0 breaches |
-| Multi-segment | 10,000 | 0 breaches |
-| **Total** | **~438,276** | **0 breaches** |
+Nothing in this repository grants or proves an ATO, FedRAMP authorization, DoD
+Impact Level authorization, FIPS validation, legal admissibility, ISO 42001
+conformity, EU AI Act conformity, or readiness for classified operation.
+Repository tests can support a broader evidence package only for the exact
+proposition each test exercises.
 
----
+## Readiness Evidence
 
-## Reporting Security Issues
+`scripts/readiness.py` is fail-closed by default. A required check that is
+blocked, unavailable, malformed, stale, attached to the wrong source revision,
+or missing its required artifact makes the command exit nonzero.
 
-This is a private research and patent-portfolio repository. Security issues should be reported directly to the repository owner.
+The live MSI gate does not trust an artifact manifest's `signed` field. On the
+provisioned Windows runner it invokes `Get-AuthenticodeSignature`, requires
+status `Valid`, requires a timestamp signer, and compares the signer
+certificate's SHA-256 fingerprint with the separately configured
+`READINESS_WINDOWS_SIGNER_SHA256` policy value.
+
+`--report-only` is a diagnostic escape hatch. Its output is explicitly marked
+as not readiness evidence and must not be used for a status badge, release
+decision, procurement statement, or authorization claim.
+
+The hosted `Readiness Gate Contract` workflow verifies the gate implementation;
+it is not a live-environment readiness result. An actual readiness result must
+come from the separate `Live Readiness Evidence Gate` on a provisioned runner
+that can perform every required check.
+
+## Known Limitations and Historical Material
+
+Open limitations and external dependencies are recorded in `PARKED.md` and the
+linked issue tracker. A missing entry is not evidence that a risk does not
+exist.
+
+Research notes and historical analysis files, including
+`SECURITY-ANALYSIS.md`, are not the maintained security boundary and must not
+be cited as current implementation evidence unless their propositions are
+independently rebound to current code and executable tests.
+
+## Supported Security-Fix Scope
+
+Security fixes are made against the current `main` branch. Historical commits,
+downloaded archives, cached artifacts, forks, and separately deployed services
+may require independent remediation. A repository merge does not activate a
+deployment or rotate a credential.
+
+## Reporting a Vulnerability
+
+Do not open a public issue, discussion, pull request, or chat message containing
+security-sensitive reproduction details, credentials, customer data, or an
+unpatched exploit.
+
+This repository is private, so GitHub Private Vulnerability Reporting is not
+available as a public intake channel. Authorized collaborators with repository
+security-advisory access should create a private draft under GitHub
+**Security** / **Advisories**. Everyone else must first ask the repository
+owner through an already established private channel to designate a secure
+reporting path; do not include technical details in that request.
+
+Include:
+
+- affected repository, commit, package, and version;
+- the narrow impact and required preconditions;
+- a minimal reproduction using synthetic data;
+- whether the issue is already public or actively exploited;
+- suggested mitigation, if known; and
+- a private contact method for coordinated follow-up.
+
+Do not test against systems, accounts, devices, or data you are not authorized
+to use. This repository does not promise a bounty, response deadline, or legal
+safe harbor. The owner will triage reports based on reproducibility, impact,
+affected boundary, and available remediation evidence, and will coordinate any
+public disclosure after a fix or bounded mitigation is available.
