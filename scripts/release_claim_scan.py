@@ -37,6 +37,7 @@ CLAIM_PATTERNS: list[tuple[str, str]] = [
 
 NOTICE_MARKERS = ("claim correction", "retracted")
 NOTICE_LINK_RE = re.compile(r"\b(?:SECURITY|PARKED)\.md\b", re.IGNORECASE)
+NOTICE_DATE_RE = re.compile(r"\b20\d{2}-\d{2}-\d{2}\b")
 
 
 def find_claims(text: str) -> list[dict]:
@@ -47,9 +48,30 @@ def find_claims(text: str) -> list[dict]:
     return hits
 
 
+def notice_position(body: str) -> int:
+    """Offset of a valid bounded correction notice, or -1.
+
+    Valid requires: all markers present, an ISO date (YYYY-MM-DD), and a link
+    to the maintained SECURITY/PARKED boundary. The returned offset is where
+    the notice starts ("claim correction" marker); callers must enforce that
+    it precedes every claim, so a marker appended after claims cannot bypass.
+    """
+    text = body or ""
+    low = text.lower()
+    pos = low.find(NOTICE_MARKERS[0])
+    if pos < 0:
+        return -1
+    if not all(marker in low for marker in NOTICE_MARKERS):
+        return -1
+    if not NOTICE_LINK_RE.search(text):
+        return -1
+    if not NOTICE_DATE_RE.search(text):
+        return -1
+    return pos
+
+
 def has_bounded_notice(body: str) -> bool:
-    low = (body or "").lower()
-    return all(marker in low for marker in NOTICE_MARKERS) and bool(NOTICE_LINK_RE.search(body or ""))
+    return notice_position(body) >= 0
 
 
 def scan_release(release: dict) -> dict:
@@ -58,13 +80,18 @@ def scan_release(release: dict) -> dict:
     tag = release.get("tag_name") or "?"
     title_hits = find_claims(title)
     body_hits = find_claims(body)
-    bounded = has_bounded_notice(body)
+    npos = notice_position(body)
+    earliest_claim = min((h["offset"] for h in body_hits), default=-1)
+    bounded = npos >= 0 and (earliest_claim < 0 or npos < earliest_claim)
     if title_hits:
         status = "fail"
         reason = "title carries claims (titles must always be clean)"
+    elif body_hits and npos >= 0 and not bounded:
+        status = "fail"
+        reason = "correction notice appears after the first claim (bypass attempt)"
     elif body_hits and not bounded:
         status = "fail"
-        reason = "body carries claims with no bounded correction notice"
+        reason = "body carries claims with no valid dated correction notice preceding them"
     elif body_hits and bounded:
         status = "bounded"
         reason = "historical claims retained under a dated bounded correction notice"

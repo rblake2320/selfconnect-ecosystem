@@ -59,6 +59,21 @@ def test_notice_requires_all_markers():
     assert has_bounded_notice(NOTICE)
 
 
+def test_undated_notice_is_rejected():
+    undated = ("> **Claim correction (bounded).** Statements below are retracted "
+               "as unsupported. See SECURITY.md and PARKED.md.\n\n---\n\n")
+    assert not has_bounded_notice(undated)
+    r = scan_release({"tag_name": "v1", "name": "v1", "body": undated + OVERCLAIM_BODY})
+    assert r["status"] == "fail"
+
+
+def test_notice_after_claim_bypass_fails():
+    body = OVERCLAIM_BODY + "\n\n" + NOTICE  # marker appended AFTER the claims
+    r = scan_release({"tag_name": "v1", "name": "v1", "body": body})
+    assert r["status"] == "fail"
+    assert "after" in r["reason"]
+
+
 def test_find_claims_is_case_insensitive():
     assert find_claims("this is PRODUCTION-READY software")
     assert find_claims("Comply With il4/5/6 requirements")
