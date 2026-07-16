@@ -1,15 +1,18 @@
 [build-system]
-requires = ["hatchling"]
+requires = [
+    "hatchling==1.27.0; python_version < '3.10'",
+    "hatchling==1.31.0; python_version >= '3.10'",
+]
 build-backend = "hatchling.build"
 
 [project]
 name = "selfconnect"
-version = "1.1.0"
-description = "SelfConnect.ai Python SDK — AI agent governance, cost control, and compliance"
+dynamic = ["version"]
+description = "Python client and framework adapters for SelfConnect session, budget-status, and event APIs"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "SelfConnect.ai", email = "sdk@selfconnect.ai" }]
-keywords = ["ai", "agents", "governance", "compliance", "cost-control", "llm", "langchain", "crewai", "autogen", "mcp", "cli"]
+keywords = ["ai", "agents", "audit-events", "cost-control", "llm", "langchain", "crewai", "autogen", "mcp", "cli"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -19,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
@@ -38,6 +42,7 @@ dev = [
     "pytest-asyncio>=0.21",
     "pytest-mock>=3.10",
     "respx>=0.20",
+    "tomli>=2.0; python_version < '3.11'",
 ]
 all = [
     "langchain-core>=0.1.0",
@@ -51,8 +56,13 @@ selfconnect-mcp = "selfconnect.mcp.server:main"
 [project.urls]
 Homepage = "https://selfconnect.ai"
 Documentation = "https://selfconnect.ai/docs"
-Repository = "https://github.com/rblake2320/selfconnect-ecosystem"
+Repository = "https://github.com/rblake2320/selfconnect-ecosystem/tree/main/packages/selfconnect-py"
 Issues = "https://github.com/rblake2320/selfconnect-ecosystem/issues"
+Security = "https://github.com/rblake2320/selfconnect-ecosystem/security/policy"
+Changelog = "https://github.com/rblake2320/selfconnect-ecosystem/blob/main/LOG.md"
+
+[tool.hatch.version]
+path = "selfconnect/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["selfconnect"]
@@ -60,3 +70,6 @@ packages = ["selfconnect"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: requires an explicitly configured disposable live API identity",
+]

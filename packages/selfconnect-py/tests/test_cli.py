@@ -12,7 +12,6 @@ import pytest
 from click.testing import CliRunner
 
 from selfconnect.cli.main import cli
-from selfconnect.cli.config import CONFIG_FILE, save_credentials, clear_credentials, get_tsk_key
 
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────

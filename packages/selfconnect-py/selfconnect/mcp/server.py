@@ -1,11 +1,11 @@
 """
-SelfConnect MCP Server — exposes SelfConnect governance tools via Model Context Protocol.
+SelfConnect MCP Server — exposes SelfConnect API client tools via MCP.
 
 This server lets MCP-compatible AI agents (Claude, Cursor, etc.) directly:
   - Check and monitor token budgets
-  - Start and end governed sessions
-  - Post events to the audit trail
-  - Retrieve cryptographic audit trails
+  - Request session start and end operations
+  - Post caller-reported events
+  - Retrieve server-reported event hash chains
   - Inspect and manage TSK keys
 
 Usage (stdio transport — works with Claude Desktop, Cursor, etc.):
@@ -21,7 +21,6 @@ Configuration (env vars or ~/.selfconnect/config.json):
 from __future__ import annotations
 
 import json
-import os
 import sys
 from typing import Any, Dict, Optional
 
@@ -30,7 +29,6 @@ try:
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
     from mcp.types import (
-        CallToolResult,
         TextContent,
         Tool,
     )
@@ -64,7 +62,7 @@ TOOLS: list[dict] = [
     {
         "name": "selfconnect_start_session",
         "description": (
-            "Start a new governed session for an AI agent. Returns a session_id "
+            "Request a new server session for an AI agent. Returns a session_id "
             "that must be used for all subsequent events in this session."
         ),
         "inputSchema": {
@@ -84,7 +82,7 @@ TOOLS: list[dict] = [
     },
     {
         "name": "selfconnect_end_session",
-        "description": "End an active governed session and finalize the audit trail.",
+        "description": "Request that the configured server end an active session.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -103,9 +101,9 @@ TOOLS: list[dict] = [
     {
         "name": "selfconnect_post_event",
         "description": (
-            "Post an agent event to the SelfConnect audit trail. "
-            "Each event is hash-chained for tamper detection. "
-            "Raises an error if the budget is exhausted."
+            "Post a caller-reported agent event to the configured server. "
+            "The server may place accepted events into a retained hash chain. "
+            "A server-side budget rejection is returned as an error."
         ),
         "inputSchema": {
             "type": "object",
@@ -126,15 +124,15 @@ TOOLS: list[dict] = [
     {
         "name": "selfconnect_get_audit",
         "description": (
-            "Retrieve the full cryptographic audit trail (chain-of-custody) for a session. "
-            "Returns all events with hash chains, suitable for compliance export."
+            "Retrieve the configured server's workflow and retained event hash-chain "
+            "data for a session. This does not prove completeness or authorization."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "session_id": {
                     "type": "string",
-                    "description": "Session ID to retrieve the audit trail for",
+                    "description": "Session ID to retrieve workflow data for",
                 }
             },
             "required": ["session_id"],
@@ -295,7 +293,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         prog="selfconnect-mcp",
-        description="SelfConnect MCP server — AI governance tools for MCP-compatible agents",
+        description="SelfConnect API client tools for MCP-compatible agents",
     )
     parser.add_argument(
         "--transport",

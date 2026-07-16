@@ -2,14 +2,15 @@
 pytest test suite for the selfconnect Python SDK.
 
 Unit tests use respx to mock httpx requests — no network required.
-Integration tests (marked with @pytest.mark.integration) hit the live
-api.selfconnect.ai endpoint using the permanent tester key.
+Integration tests require an explicitly configured disposable test identity
+and base URL. No live credential is embedded in this repository.
 
 Run unit tests only:
     pytest tests/test_client.py -v -m "not integration"
 
-Run all tests including live integration:
-    pytest tests/test_client.py -v
+Run explicitly configured live integration:
+    SELFCONNECT_TSK_KEY=... SELFCONNECT_BASE_URL=... \
+        pytest tests/test_client.py -v -m integration
 """
 
 from __future__ import annotations
@@ -29,7 +30,6 @@ from selfconnect.client import PolicyDeniedError
 
 BASE_URL = "https://api.selfconnect.ai"
 TESTER_KEY = "sc-tsk-TESTER-0000"
-VALID_KEY = os.environ.get("SELFCONNECT_TSK_KEY", TESTER_KEY)
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +279,7 @@ class TestSessionContextManager:
         start_route = mock_api.post("/sessions/start").mock(
             return_value=httpx.Response(200, json={"session_id": "sess-ctx-001"})
         )
-        events_route = mock_api.post("/events").mock(
+        mock_api.post("/events").mock(
             return_value=httpx.Response(200, json={"ok": True})
         )
         end_route = mock_api.post("/sessions/end").mock(
@@ -295,7 +295,7 @@ class TestSessionContextManager:
         assert end_route.called
 
     def test_session_ends_even_on_exception(self, client, mock_api):
-        start_route = mock_api.post("/sessions/start").mock(
+        mock_api.post("/sessions/start").mock(
             return_value=httpx.Response(200, json={"session_id": "sess-exc"})
         )
         end_route = mock_api.post("/sessions/end").mock(
@@ -355,21 +355,31 @@ class TestGovernedSessionDecorator:
 
 
 # ---------------------------------------------------------------------------
-# Integration Tests (require live api.selfconnect.ai)
+# Integration Tests (require an explicitly configured disposable identity)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.integration
 class TestLiveIntegration:
     """
-    Live integration tests against api.selfconnect.ai.
-    Uses the permanent tester key sc-tsk-TESTER-0000.
+    Live integration tests against an operator-selected SelfConnect endpoint.
 
-    Run with: pytest -m integration
+    The credential must be restricted, disposable, and supplied by a protected
+    environment. These tests do not run with the unit-test placeholder key.
     """
 
     @pytest.fixture(autouse=True)
     def live_client(self):
-        self.client = TskClient(tsk_key=TESTER_KEY, base_url=BASE_URL)
+        key = os.environ.get("SELFCONNECT_TSK_KEY")
+        base_url = os.environ.get("SELFCONNECT_BASE_URL")
+        if not key or not base_url:
+            pytest.skip(
+                "live integration requires SELFCONNECT_TSK_KEY and "
+                "SELFCONNECT_BASE_URL from a protected environment"
+            )
+        if key == TESTER_KEY:
+            pytest.fail("unit-test placeholder key cannot be used for live integration")
+        self.client = TskClient(tsk_key=key, base_url=base_url)
+        self.live_base_url = base_url
 
     def test_get_budget_returns_real_data(self):
         budget = self.client.get_budget()
@@ -423,7 +433,11 @@ class TestLiveIntegration:
         # Session should be ended automatically
 
     def test_invalid_key_raises_tsk_invalid(self):
-        bad_client = TskClient(tsk_key="sc-tsk-INVALID-0000", base_url=BASE_URL, max_retries=1)
+        bad_client = TskClient(
+            tsk_key="sc-tsk-INVALID-0000",
+            base_url=self.live_base_url,
+            max_retries=1,
+        )
         with pytest.raises((TskInvalidError, SelfConnectError)):
             bad_client.post_event("fake-session", "llm_call")
 

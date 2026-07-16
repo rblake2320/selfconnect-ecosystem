@@ -1,8 +1,8 @@
 """
 SelfConnect + CrewAI Integration Example
 
-Wraps a CrewAI crew with SelfConnect governance so every agent action,
-LLM call, and tool use is recorded in the SelfConnect audit trail.
+Wraps a CrewAI run with session, completion-summary, and error events. It does
+not observe every internal agent action, LLM call, or tool use.
 
 Requirements:
     pip install selfconnect crewai
@@ -28,7 +28,7 @@ from typing import Any, Dict, Optional
 
 class GovernedCrew:
     """
-    Wraps a CrewAI ``Crew`` instance with SelfConnect governance.
+    Wraps a CrewAI ``Crew`` instance with bounded SelfConnect event reporting.
 
     Parameters
     ----------
@@ -37,7 +37,7 @@ class GovernedCrew:
     crew : crewai.Crew
         The CrewAI crew to govern.
     agent_id : str
-        Identifier for this crew in the SelfConnect audit trail.
+        Identifier used for this crew's SelfConnect event records.
     base_url : str
         SelfConnect API base URL.
     """
@@ -112,9 +112,8 @@ def _demo():
     """
     try:
         from crewai import Agent, Crew, Process, Task
-        from langchain_openai import ChatOpenAI
     except ImportError:
-        print("Install crewai and langchain-openai to run this demo.")
+        print("Install crewai to run this demo.")
         return
 
     import os

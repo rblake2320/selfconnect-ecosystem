@@ -19,7 +19,9 @@ jobs:
       - name: Unit tests for the gate
         run: |
           pip install pytest==9.1.1  # pinned: daily cron gate must not change behavior without a commit
-          python -m pytest tests/test_release_claim_scan.py -q
+          python -m pytest tests/test_release_claim_scan.py tests/test_package_release_gate.py -q
+      - name: Scan Python package source and public claim surfaces
+        run: python scripts/package_release_gate.py --root .
       - name: Scan release titles/bodies (fail-closed)
         env:
           GH_TOKEN: ${{ github.token }}

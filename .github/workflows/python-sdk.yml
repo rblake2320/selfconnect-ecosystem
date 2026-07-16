@@ -1,0 +1,140 @@
+name: Python SDK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/python-sdk.yml"
+      - ".github/workflows/release.yml"
+      - "packages/selfconnect-py/**"
+      - "scripts/package_release_gate.py"
+      - "tests/test_package_release_gate.py"
+      - "README.md"
+      - "AGENTS.md"
+      - "CLAUDE.md"
+      - "docs/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/python-sdk.yml"
+      - ".github/workflows/release.yml"
+      - "packages/selfconnect-py/**"
+      - "scripts/package_release_gate.py"
+      - "tests/test_package_release_gate.py"
+      - "README.md"
+      - "AGENTS.md"
+      - "CLAUDE.md"
+      - "docs/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Python ${{ matrix.python }} unit
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install package test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "./packages/selfconnect-py[dev]"
+      - name: Run package unit tests
+        run: python -m pytest packages/selfconnect-py/tests -q -m "not integration"
+
+  artifact:
+    name: Claims, build, wheel smoke, audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: Install pinned validation tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            build==1.5.0 \
+            pip-audit==2.10.1 \
+            pytest==9.1.1 \
+            pytest-asyncio==1.4.0 \
+            respx==0.23.1 \
+            ruff==0.15.21 \
+            twine==6.2.0
+          python -m pip install -e "./packages/selfconnect-py[all]"
+      - name: Lint release-owned code
+        run: >
+          ruff check
+          packages/selfconnect-py/selfconnect
+          packages/selfconnect-py/tests
+          scripts/package_release_gate.py
+          tests/test_package_release_gate.py
+      - name: Run release-gate tests
+        run: >
+          python -m pytest
+          tests/test_package_release_gate.py
+          packages/selfconnect-py/tests
+          -q -m "not integration"
+      - name: Check source claims and version identity
+        run: python scripts/package_release_gate.py --root .
+      - name: Read the single-source package version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(
+            python -c "from selfconnect import __version__; print(__version__)"
+          )"
+          echo "PACKAGE_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Build wheel and source distribution
+        run: python -m build --outdir packages/selfconnect-py/dist packages/selfconnect-py
+      - name: Check package metadata
+        run: python -m twine check packages/selfconnect-py/dist/*
+      - name: Check built artifacts without importing them
+        run: >
+          python scripts/package_release_gate.py
+          --root .
+          --dist-dir packages/selfconnect-py/dist
+      - name: Install and smoke-test the built wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv "$RUNNER_TEMP/wheel-venv"
+          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip install \
+            packages/selfconnect-py/dist/selfconnect-"$PACKAGE_VERSION"-py3-none-any.whl \
+            pip-audit==2.10.1
+          "$RUNNER_TEMP/wheel-venv/bin/python" - <<'PY'
+          import importlib.metadata
+          import os
+          import selfconnect
+          from selfconnect import TskClient
+
+          expected = os.environ["PACKAGE_VERSION"]
+          assert importlib.metadata.version("selfconnect") == expected
+          assert selfconnect.__version__ == expected
+          client = TskClient("sc-tsk-CI-WHEEL-SMOKE")
+          try:
+              assert client._http.headers["User-Agent"] == f"selfconnect-py/{expected}"
+          finally:
+              client.close()
+          PY
+          test "$("$RUNNER_TEMP/wheel-venv/bin/selfconnect" version)" = \
+            "selfconnect $PACKAGE_VERSION"
+          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip freeze \
+            | grep -v -E '^selfconnect([=@ ]|$)' \
+            > "$RUNNER_TEMP/wheel-requirements.txt"
+          "$RUNNER_TEMP/wheel-venv/bin/python" -m pip_audit \
+            --progress-spinner off \
+            --requirement "$RUNNER_TEMP/wheel-requirements.txt"

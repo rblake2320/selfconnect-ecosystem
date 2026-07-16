@@ -2,18 +2,22 @@
 
 ## What This Repo Is
 
-This is the **meta/umbrella repository** for the entire SelfConnect project. It contains no source code itself — every folder is a git submodule pointing to a live, separate GitHub repo.
+This is the **meta/umbrella repository** for the SelfConnect project. Most
+product folders are git submodules pointing to separate repositories. The
+versioned Python SDK under `packages/selfconnect-py/` is an exception and is
+maintained directly in this repository.
 
-**Never edit source files here directly.** Go into the submodule folder, make changes, commit/push from there.
+**Edit source in its owning repository.** For submodule products, work in the
+submodule repository. For the Python SDK, work in `packages/selfconnect-py/`.
 
 ## Repo Map
 
 | Folder | What it is | When to touch it |
 |--------|------------|-----------------|
 | `core/` | Win32 injection SDK — PostMessage WM_CHAR | Any agent communication, window targeting, mesh injection |
-| `enterprise/` | Governance layer — policy, audit, 528 tests | Enterprise deployment, regulated env, compliance features |
-| `federal/` | IL6/IL7 tier — agentic identity + orchestration | Government/defense use cases |
-| `accord/` | Cryptographic agent compliance evidence | Proving agent behavior to auditors |
+| `enterprise/` | Governance layer — policy and audit mechanisms | Enterprise deployment and regulated-environment evaluation |
+| `federal/` | Restricted-environment identity + orchestration research | Government/defense deployment evaluation |
+| `accord/` | Cryptographic evidence packaging | Producing integrity-verifiable evidence inputs |
 | `alt/` | Deep Win32 optimization — ConPTY, SharedMemIPC, DXGI | Performance-critical injection, screen capture, low-latency |
 | `mac/` | macOS port | Any Mac-side agent communication |
 | `audio/` | Audio/voice channel | Voice-to-agent, speech injection |
@@ -22,8 +26,8 @@ This is the **meta/umbrella repository** for the entire SelfConnect project. It 
 | `provenance/` | Cryptographic provenance tracking | Chain-of-custody for agent actions |
 | `agent-wire/` | Dispatch gateway — deny-by-default policy, hash-chained ledger | All inter-agent message routing |
 | `agent-status/` | Token burn daemon — JSONL tailing, USD limits, PreToolUse hook | Budget enforcement, combined cross-session ceiling, fleet monitoring |
-| `selfconnect-store/` | SQLite event store — session/workflow/compliance queries, EU AI Act bundle | Operational queries, compliance evidence, cross-session analytics |
-| `bpc/` | Bound Pair Credentials — hardware-bound, replay-proof auth | Agent identity in enterprise/federal tiers |
+| `selfconnect-store/` | SQLite event store — session/workflow queries and evidence bundle inputs | Operational queries, evidence review, cross-session analytics |
+| `bpc/` | Bound Pair Credentials — registered pair-key auth with configurable replay controls | Agent authentication in higher-assurance tiers |
 | `tsk/` | Tumbler-Style Rotating Segment Keys — structural key secrecy | Key rotation in federal/enterprise tiers |
 | `demo/` | Demo kit | Demos and examples |
 

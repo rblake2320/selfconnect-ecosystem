@@ -21,7 +21,7 @@ These are the repos currently treated as part of the SelfConnect ecosystem:
 | `selfconnect-ecosystem` | Umbrella command-center repo and cross-repo map. |
 | `selfconnect` | Normal/core SelfConnect SDK: fast local AI-to-AI transport, Win32 terminal channel, packaging, MCP adapter, readback helpers. |
 | `selfconnect-enterprise` | Enterprise governance: service mode, leases, WORM wiring, TPM adapter, MCP runtime dispatch, ATO docs. |
-| `selfconnect-federal` | Government/federal tier with IL6/IL7-minded process and evidence goals. |
+| `selfconnect-federal` | Government/federal tier with restricted-environment process and evidence goals; authorization is deployment-specific. |
 | `selfconnect-provenance` | Provenance and chain-of-custody layer. |
 | `selfconnect-terminal` | Terminal experience and terminal-specific mesh workflows. |
 | `selfconnect-plugins` | Plugin and extension surface. |
@@ -29,10 +29,10 @@ These are the repos currently treated as part of the SelfConnect ecosystem:
 | `SelfConnect-Mac` | macOS SelfConnect path. |
 | `SelfConnect-Demo-kit-` | Demo and reproducible proof kit. |
 | `selfconnect-frontier-harness` | Frontier model and agent test harness work. |
-| `selfconnect-accord` | Compliance/evidence agreement layer. |
+| `selfconnect-accord` | Signed evidence packaging layer; compliance and admissibility conclusions remain external. |
 | `selfconnect-linux` | Linux SelfConnect path. |
 | `selfconnect-alt` | Alternative and optimized SelfConnect path. |
-| `bpc-protocol` | Bound Pair Credentials, hardware-bound credential work used by higher assurance tiers. |
+| `bpc-protocol` | Bound Pair Credentials, registered pair-key authentication with optional deployment-specific hardware backing. |
 | `tsk-protocol` | Rotating segment key protocol used by enterprise/federal support paths. |
 | `patent-portfolio` | Patent and claim evidence workspace. |
 | `ultra-computer` | Only the parts directly supporting SelfConnect should be considered ecosystem-adjacent. |
@@ -63,7 +63,7 @@ SelfConnect should stay usable at three distinct levels. Do not let government c
 | --- | --- | --- |
 | Normal | Fast personal AI-to-AI work: bidirectional, tridirectional, and N-agent mesh testing. | Keep gates open. Keep target guard, birth ID, mesh registry, compact handoff, and echo-filtered readback because they are correctness, not governance friction. |
 | Enterprise | Governance, controls, audit, service mode, WORM, leases, MCP dispatch, admin visibility. | Policy-enabled by explicit profile. Fail closed where enterprise customers expect it. |
-| Government | IL6/IL7-minded process, provenance, TPM/WORM evidence, ATO package, strict records. | Full governance and evidence mode. This should not be the default personal developer path. |
+| Government | Restricted-environment process, provenance, TPM/WORM evidence inputs, authorization-package support, strict records. | Full governance and evidence mode. This should not be the default personal developer path. |
 
 ## Cross-Repo Agent Rule
 
@@ -71,7 +71,7 @@ Before changing code, identify the owning repo. If the work is:
 
 - raw OS-native send/read/package behavior, use `selfconnect`;
 - enterprise controls or service behavior, use `selfconnect-enterprise`;
-- federal/IL6/IL7 evidence, use `selfconnect-federal`;
+- restricted-environment and authorization-package evidence, use `selfconnect-federal`;
 - patent claim/evidence records, use `patent-portfolio` or this repo's watch docs;
 - broad map, competitive watch, or cross-repo strategy, use `selfconnect-ecosystem`.
 

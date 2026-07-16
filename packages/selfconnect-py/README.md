@@ -1,6 +1,7 @@
 # selfconnect — Python SDK
 
-**AI agent governance, cost control, and compliance for every framework.**
+Python client and optional framework adapters for SelfConnect session,
+budget-status, and event APIs.
 
 ```bash
 pip install selfconnect
@@ -24,15 +25,20 @@ with client.session("my-agent") as session_id:
 
 ## Core Concepts
 
-The `TskClient` wraps every AI agent interaction with a **Trust Session Key (TSK)** — a cryptographically-bound identity that enforces budget limits, records every action in an immutable audit trail, and generates compliance reports on demand.
+`TskClient` presents a server-issued TSK credential to a configured SelfConnect
+API. The server can accept or reject session and event requests, including
+returning `401`, `403`, or `429`; direct client calls surface those responses as
+typed exceptions. The SDK does not itself establish hardware binding,
+cryptographic identity, storage immutability, event completeness, or a
+deployment authorization.
 
 | Concept | Description |
 |---|---|
-| **TSK Key** | Identity token for an agent or team (`sc-tsk-XXXX-YYYY`) |
+| **TSK Key** | Server-issued bearer credential (`sc-tsk-XXXX-YYYY`) |
 | **Session** | A bounded unit of work — start → events → end |
-| **Event** | A single agent action (LLM call, tool use, policy check) |
-| **Budget** | Token limit enforced at the API level — 429 when exhausted |
-| **Audit Trail** | Cryptographic hash chain of all events — tamper-evident |
+| **Event** | A caller-reported event such as an LLM call, tool use, or policy decision |
+| **Budget** | Server-reported token budget; direct calls raise on a `429` response |
+| **Hash chain** | Server-reported retained event chain; useful for tamper detection within its stated boundary |
 
 ---
 
@@ -120,7 +126,7 @@ print(f"Used: {budget['used']:,} / {budget['budget']:,} tokens ({budget['pct_use
 print(f"Remaining: {budget['remaining']:,} tokens")
 ```
 
-### Audit Trail
+### Server-Reported Workflow Data
 
 ```python
 workflow = client.get_session_workflow(session_id)
@@ -147,11 +153,17 @@ response = llm.invoke("Explain AI governance in 3 sentences")
 print(f"Session ID: {handler.session_id}")
 ```
 
-**What gets recorded automatically:**
-- Every LLM call with token counts and latency
-- Every tool invocation
-- Every agent action and finish
-- Chain errors with stack context
+**What the callback adapter attempts to report:**
+- LLM callbacks received while a SelfConnect session is active
+- Tool callbacks received while a SelfConnect session is active
+- Agent action/finish callbacks received by the handler
+- Chain error callbacks and bounded error text
+
+`raise_on_error=False` is the default. In that mode, SelfConnect API failures
+are logged and LangChain execution continues, so the adapter is fail-open
+telemetry rather than a non-bypassable enforcement boundary. Set
+`raise_on_error=True` when the caller requires callback delivery errors to stop
+execution.
 
 ---
 
@@ -226,7 +238,7 @@ except SelfConnectError as e:
 | `post_event(session_id, event_type, ...)` | Post a single event |
 | `post_events(events)` | Post a batch of events |
 | `get_budget()` | Get current budget status |
-| `get_session_workflow(session_id)` | Get audit trail for a session |
+| `get_session_workflow(session_id)` | Get server-reported workflow and event hash-chain data |
 | `get_tsk_info()` | Get metadata for this TSK key |
 | `get_tsk_events(limit=100)` | Get recent events for this key |
 | `session(agent_id)` | Context manager — auto start/end |
@@ -261,19 +273,33 @@ except SelfConnectError as e:
 pytest tests/ -m "not integration"
 
 # All tests including live API
-SELFCONNECT_TSK_KEY=sc-tsk-YOUR-KEY pytest tests/ -v
+SELFCONNECT_TSK_KEY=sc-tsk-YOUR-KEY \
+SELFCONNECT_BASE_URL=https://your-disposable-test-api.example \
+pytest tests/ -m integration -v
 ```
 
 ---
 
-## Compliance Standards
+## Evidence and Authorization Boundary
 
-SelfConnect audit trails are designed to support:
+The SDK can retrieve server-reported events and hash-chain fields that an
+operator may include in a broader evidence package. It does not by itself
+establish EU AI Act, ISO 42001, NIST SP 800-53, FIPS 140, FedRAMP, ATO, or DoD
+Impact Level compliance or authorization. Those conclusions depend on the
+deployed server, complete system boundary, configuration, custody, assessment,
+and approving authority.
 
-- **EU AI Act** — Article 12 (record-keeping), Article 13 (transparency)
-- **NIST 800-53** — AU-2 (audit events), AU-9 (protection of audit info)
-- **ISO 42001** — AI management system evidence requirements
-- **IL4/IL5/IL6/IL7** — Government and regulated industry requirements
+Hash chaining can reveal modification of retained entries. It does not by
+itself prove that all events were captured, prevent truncation/deletion, bind
+events to a signer, or make storage immutable.
+
+## Credential Storage
+
+Prefer `SELFCONNECT_TSK_KEY` supplied by an operating-system or CI secret store.
+`selfconnect login` writes the credential to `~/.selfconnect/config.json`.
+Although the CLI requests owner-only file mode where supported, `chmod(0600)`
+is not a Windows ACL guarantee. Do not treat the local JSON file as a hardware-
+backed or independently attested credential store.
 
 ---
 
@@ -281,7 +307,7 @@ SelfConnect audit trails are designed to support:
 
 - **Dashboard**: [selfconnect.ai](https://selfconnect.ai)
 - **API Docs**: [selfconnect.ai/docs](https://selfconnect.ai/docs)
-- **GitHub**: [rblake2320/selfconnect-ecosystem](https://github.com/rblake2320/selfconnect-ecosystem)
+- **Source**: [packages/selfconnect-py](https://github.com/rblake2320/selfconnect-ecosystem/tree/main/packages/selfconnect-py)
 - **Issues**: [GitHub Issues](https://github.com/rblake2320/selfconnect-ecosystem/issues)
 
 ---

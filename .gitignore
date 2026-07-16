@@ -1,4 +1,8 @@
 packages/selfconnect-py/**/__pycache__/
 packages/selfconnect-py/**/*.pyc
+packages/selfconnect-py/dist/
+packages/selfconnect-py/build/
+packages/selfconnect-py/*.egg-info/
+packages/selfconnect-py/**/.pytest_cache/
 __pycache__/
 *.pyc

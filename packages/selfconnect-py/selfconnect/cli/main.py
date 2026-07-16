@@ -1,12 +1,12 @@
 """
-selfconnect CLI — manage your AI governance platform from the terminal.
+selfconnect CLI — access SelfConnect session, event, and budget APIs.
 
 Commands:
   login     Save a TSK key to ~/.selfconnect/config.json
   logout    Remove saved credentials
   status    Show TSK key info and budget
   usage     Show recent events and token usage
-  audit     Export a session audit trail (chain-of-custody)
+  audit     Export server-reported session workflow data
   keys      Manage TSK keys (info, revoke)
   session   Start / end sessions manually
   version   Print SDK version
@@ -75,9 +75,10 @@ def _budget_bar(pct: float, width: int = 30) -> str:
 @click.group()
 @click.version_option(package_name="selfconnect", prog_name="selfconnect")
 def cli():
-    """SelfConnect.ai — AI governance platform CLI.
+    """SelfConnect.ai API client CLI.
 
-    Manage TSK keys, monitor budgets, and export audit trails from the terminal.
+    Manage TSK keys, monitor budget status, and export server-reported workflow
+    data from the terminal.
 
     Docs: https://selfconnect.ai/docs/cli
     """
@@ -213,7 +214,7 @@ def usage(key: Optional[str], limit: int, as_json: bool):
 @click.option("--output", "-o", default=None, help="Save to file (default: stdout)")
 @click.option("--json", "as_json", is_flag=True, default=True, help="Output JSON (default)")
 def audit(session_id: str, key: Optional[str], output: Optional[str], as_json: bool):
-    """Export the cryptographic audit trail for a session.
+    """Export server-reported workflow and event hash-chain data for a session.
 
     SESSION_ID is the UUID of the session to retrieve.
 
@@ -232,7 +233,7 @@ def audit(session_id: str, key: Optional[str], output: Optional[str], as_json: b
 
     if output:
         Path(output).write_text(payload)
-        _ok(f"Audit trail saved to {output}")
+        _ok(f"Workflow data saved to {output}")
         events = workflow.get("chain_of_custody", workflow.get("events", []))
         click.echo(f"  Events: {len(events)}  |  Session: {session_id}")
     else:

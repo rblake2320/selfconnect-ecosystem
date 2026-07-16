@@ -1,11 +1,12 @@
 """
 SelfConnect.ai Python SDK
 
-AI agent governance, cost control, and compliance.
+HTTP client and optional framework adapters for SelfConnect APIs.
 """
 
 from .client import TskClient, SelfConnectError, BudgetExhaustedError, TskInvalidError
 from .langchain_handler import SelfConnectCallbackHandler
+from ._version import __version__
 
 __all__ = [
     "TskClient",
@@ -13,6 +14,5 @@ __all__ = [
     "SelfConnectError",
     "BudgetExhaustedError",
     "TskInvalidError",
+    "__version__",
 ]
-
-__version__ = "1.0.0"
