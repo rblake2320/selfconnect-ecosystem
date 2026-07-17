@@ -55,3 +55,18 @@ On 2026-07-17, the owner registered the matching PyPI Trusted Publisher and
 set `PYPI_TRUSTED_PUBLISHING_ENABLED=true` in the protected `pypi` environment.
 Publication remains release-triggered and must pass the build, test, claim,
 dependency-audit, artifact, hash, and provenance gates above.
+
+## 2026-07-17 Publication Record
+
+- `selfconnect 1.1.3` was published from annotated tag
+  `selfconnect-py-v1.1.3` at protected-main commit `61a64a1`.
+- GitHub Actions run `29569154200` passed build, ancestry, tests, dependency
+  audit, wheel smoke, Trusted Publishing, PyPI hash comparison, and PyPI
+  attestation verification.
+- An independent clean-environment install resolved both distribution and
+  runtime versions to `1.1.3`.
+- PyPI releases `1.0.0` and `1.1.0` were yanked because their metadata and
+  descriptions contained superseded, overbroad compliance and capability
+  claims. Exact-version installation remains possible under PEP 592.
+- `1.1.1` and `1.1.2` were never uploaded to PyPI; their unchanged GitHub tags
+  and failed workflow runs preserve the fail-closed release history.
