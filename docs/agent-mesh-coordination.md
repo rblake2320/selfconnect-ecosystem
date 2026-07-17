@@ -64,15 +64,25 @@ Correct transport (see `mesh_send.py`):
    via `SendInput` (accepted as submit), then restore the previous foreground
    window.
 
-Guards (mandatory): validate the peer **HWND→PID match AND window-title
-substring** immediately before typing and again before the focus+Enter; refuse
-on any mismatch so a stale/reused HWND cannot steal focus or submit into the
-wrong window.
+Guards (as implemented in `mesh_send.py`): before typing and again before the
+focus+Enter it validates the peer window is a live window, its **PID matches**,
+and — when a title argument is supplied — that the **title contains an expected
+substring**; it refuses on mismatch so a stale/reused HWND cannot steal focus or
+submit into the wrong window. The title check is **optional** (pass it to make
+it enforced), and exe/class are **not** currently validated — supplying the
+title argument is therefore recommended, and exe/class guards are a known future
+hardening.
 
-Proof-of-delivery (do not trust "SENT" alone): every submit is appended to a
-durable log with a timestamp, and delivery is confirmed by screen-capturing the
-peer window and checking the packet landed as a **completed message** (composer
-empty), not sitting in the composer.
+Proof-of-delivery is **not automatic — do not trust the `SENT-AND-SUBMITTED`
+line alone.** Confirm delivery out of band: bind the submitted input against the
+peer's returned ACK packet, and/or **manually screen-capture** the peer window
+to confirm the packet landed as a completed message (composer empty), not
+sitting in the composer. `mesh_send.py` does **not** capture.
+
+Logging is **best-effort only**: each submit is appended to a local
+`mesh_send.log`, but a log write error is deliberately swallowed, so the log is
+a convenience trail — **not** a guaranteed durable record and not evidence of
+delivery.
 
 ## Packet Format
 
