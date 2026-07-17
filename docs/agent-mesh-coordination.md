@@ -49,6 +49,31 @@ Then send with guarded expectations:
 python -m sc_cli send --hwnd 28443124 --text "[CLAUDE-1 -> CODEX-1] ACK. Waiting." --submit --allow-input --expect-pid 16680 --expect-exe WindowsTerminal.exe --expect-class CASCADIA_HOSTING_WINDOW_CLASS --expect-title "codex 1" --char-delay 0.01
 ```
 
+## Auto-Submit Transport (new capability, 2026-07-17)
+
+Mesh packets now **auto-submit**: the message is typed into the peer's console
+**and** submitted, with no human pressing Enter. Previously `WriteConsoleInputW`
+only *typed* the packet — it sat unsent in the peer's composer until a human hit
+Enter, because a TUI (e.g. Codex) only submits a line when its window has focus.
+Reporting "SENT" at that point was false: typed ≠ delivered.
+
+Correct transport (see `mesh_send.py`):
+
+1. Type the text into the peer console via `WriteConsoleInputW`.
+2. **Submit**: briefly `SetForegroundWindow(peer)` + send a hardware `Enter`
+   via `SendInput` (accepted as submit), then restore the previous foreground
+   window.
+
+Guards (mandatory): validate the peer **HWND→PID match AND window-title
+substring** immediately before typing and again before the focus+Enter; refuse
+on any mismatch so a stale/reused HWND cannot steal focus or submit into the
+wrong window.
+
+Proof-of-delivery (do not trust "SENT" alone): every submit is appended to a
+durable log with a timestamp, and delivery is confirmed by screen-capturing the
+peer window and checking the packet landed as a **completed message** (composer
+empty), not sitting in the composer.
+
 ## Packet Format
 
 Use this shape for agent-to-agent messages:
