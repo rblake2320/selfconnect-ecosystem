@@ -49,40 +49,33 @@ Then send with guarded expectations:
 python -m sc_cli send --hwnd 28443124 --text "[CLAUDE-1 -> CODEX-1] ACK. Waiting." --submit --allow-input --expect-pid 16680 --expect-exe WindowsTerminal.exe --expect-class CASCADIA_HOSTING_WINDOW_CLASS --expect-title "codex 1" --char-delay 0.01
 ```
 
-## Auto-Submit Transport (new capability, 2026-07-17)
+## Auto-submit — LOCAL OPERATOR EXPERIMENT (not a supported capability)
 
-Mesh packets now **auto-submit**: the message is typed into the peer's console
-**and** submitted, with no human pressing Enter. Previously `WriteConsoleInputW`
-only *typed* the packet — it sat unsent in the peer's composer until a human hit
-Enter, because a TUI (e.g. Codex) only submits a line when its window has focus.
-Reporting "SENT" at that point was false: typed ≠ delivered.
+> **Boundary:** this describes an **unversioned local operator experiment**, not
+> a supported SelfConnect capability. The helper it refers to lives **outside
+> this repository** (an operator-local script, not tracked or released here), so
+> nothing in this section is reproducible from the repo. Productionizing it —
+> guarded focus + hardware-submit with real tests — is tracked separately; until
+> that lands, treat this as background notes, not a feature.
 
-Correct transport (see `mesh_send.py`):
+The observation: after `WriteConsoleInputW` types a packet into a peer TUI's
+console, the line often sits **unsent** in the composer, because the TUI only
+submits when its window has focus — so reporting "SENT" at that point is false
+(typed ≠ delivered). An operator-local script works around this by focusing the
+peer window and sending a hardware `Enter` via `SendInput` after typing, then
+restoring focus.
 
-1. Type the text into the peer console via `WriteConsoleInputW`.
-2. **Submit**: briefly `SetForegroundWindow(peer)` + send a hardware `Enter`
-   via `SendInput` (accepted as submit), then restore the previous foreground
-   window.
+**Known limitations of the current local helper (do NOT copy it unchanged):**
+- **fail-open logging** — log write errors are swallowed; the log is not durable
+  and is not delivery evidence;
+- **optional title guard** — it checks HWND-live + PID, and title only when
+  supplied; it does **not** validate exe/class;
+- **no Win32 return-value checks** on the focus/submit calls;
+- **no ACK binding** — delivery is not confirmed against a peer acknowledgement.
 
-Guards (as implemented in `mesh_send.py`): before typing and again before the
-focus+Enter it validates the peer window is a live window, its **PID matches**,
-and — when a title argument is supplied — that the **title contains an expected
-substring**; it refuses on mismatch so a stale/reused HWND cannot steal focus or
-submit into the wrong window. The title check is **optional** (pass it to make
-it enforced), and exe/class are **not** currently validated — supplying the
-title argument is therefore recommended, and exe/class guards are a known future
-hardening.
-
-Proof-of-delivery is **not automatic — do not trust the `SENT-AND-SUBMITTED`
-line alone.** Confirm delivery out of band: bind the submitted input against the
-peer's returned ACK packet, and/or **manually screen-capture** the peer window
-to confirm the packet landed as a completed message (composer empty), not
-sitting in the composer. `mesh_send.py` does **not** capture.
-
-Logging is **best-effort only**: each submit is appended to a local
-`mesh_send.log`, but a log write error is deliberately swallowed, so the log is
-a convenience trail — **not** a guaranteed durable record and not evidence of
-delivery.
+A supported version must add exact guards (PID + exe + class + title), checked
+Win32 return values, a durable (not fail-open) audit trail, and delivery bound
+to a peer ACK — with tests — before any capability claim.
 
 ## Packet Format
 
