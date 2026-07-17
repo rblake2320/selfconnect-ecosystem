@@ -26,7 +26,7 @@ RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 
 
 def test_repository_source_contract_version():
-    assert source_version(PACKAGE_DIR) == "1.1.1"
+    assert source_version(PACKAGE_DIR) == "1.1.2"
 
 
 def test_private_release_checkout_retains_read_only_fetch_credential():
