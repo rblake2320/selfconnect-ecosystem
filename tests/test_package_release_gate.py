@@ -22,10 +22,18 @@ from package_release_gate import (  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PACKAGE_DIR = ROOT / "packages" / "selfconnect-py"
+RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 
 
 def test_repository_source_contract_version():
     assert source_version(PACKAGE_DIR) == "1.1.1"
+
+
+def test_private_release_checkout_retains_read_only_fetch_credential():
+    workflow = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+    assert "permissions:\n  contents: read" in workflow
+    assert "persist-credentials: true" in workflow
+    assert "git fetch origin main --no-tags" in workflow
 
 
 def test_prohibited_claim_examples_are_detected():
