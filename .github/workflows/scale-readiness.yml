@@ -69,6 +69,7 @@ jobs:
           }
           "PRODUCER_RUN_ATTEMPT=$($run.run_attempt)" >> $env:GITHUB_ENV
           "PRODUCER_ACTOR=$($run.actor.login)" >> $env:GITHUB_ENV
+          "PRODUCER_SOURCE_SHA=$($run.head_sha)" >> $env:GITHUB_ENV
 
           $source = Join-Path $env:RUNNER_TEMP 'restricted-producer'
           New-Item -ItemType Directory -Path $source | Out-Null
@@ -106,8 +107,12 @@ jobs:
             --expected-producer-run-id '${{ inputs.producer_run_id }}' `
             --expected-producer-run-attempt $env:PRODUCER_RUN_ATTEMPT `
             --expected-producer-actor $env:PRODUCER_ACTOR `
+            --expected-producer-source-sha $env:PRODUCER_SOURCE_SHA `
             --producer-archive (Join-Path $env:RUNNER_TEMP 'restricted-producer\scale-evidence.zip') `
             --verified-attestation-result (Join-Path $env:RUNNER_TEMP 'restricted-producer\verified-attestation.json') `
+            --consumer-run-id $env:GITHUB_RUN_ID `
+            --consumer-run-attempt $env:GITHUB_RUN_ATTEMPT `
+            --consumer-actor $env:GITHUB_ACTOR `
             --max-evidence-age-hours '${{ inputs.max_evidence_age_hours }}' `
             --report-file (Join-Path $env:RUNNER_TEMP 'scale-readiness-report.json')
 

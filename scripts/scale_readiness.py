@@ -31,6 +31,16 @@ PRODUCER_SIGNER_WORKFLOW = (
     "github.com/rblake2320/selfconnect/.github/workflows/restricted-scale-producer.yml"
 )
 PRODUCER_SOURCE_REF = "refs/heads/master"
+PRODUCER_REPOSITORY = "rblake2320/selfconnect"
+PRODUCER_REPOSITORY_URI = f"https://github.com/{PRODUCER_REPOSITORY}"
+PRODUCER_SIGNER_URI = (
+    f"{PRODUCER_REPOSITORY_URI}/.github/workflows/"
+    "restricted-scale-producer.yml@refs/heads/master"
+)
+GITHUB_OIDC_ISSUER = "https://token.actions.githubusercontent.com"
+SLSA_PROVENANCE_V1 = "https://slsa.dev/provenance/v1"
+CONSUMER_REPOSITORY = "rblake2320/selfconnect-ecosystem"
+CONSUMER_WORKFLOW = "Verify Restricted Scale Evidence"
 DEFAULT_MAX_EVIDENCE_AGE_HOURS = 168.0
 MAX_EVIDENCE_AGE_HOURS = 168.0
 MAX_FUTURE_SKEW = timedelta(minutes=5)
@@ -64,6 +74,18 @@ PROVIDER_ENTRYPOINT_SHA256 = {
     "codex": "51398051c2332b6afe08dc3b9dbb4056085c197f35ca57a307ee303d450cada5",
     "claude": "ba6e71d0e39b33c42a519bd10fc6d79b04d62cedcc918b3991ff863462261eb0",
     "gemini": "6970329338ab5726d015b4ed847b1d2fd960244baefc86cbeacd3786b677dddc",
+}
+PROVIDER_EXE_NAMES = {
+    "codex": "codex.exe",
+    "claude": "claude.exe",
+    "gemini": "node.exe",
+}
+# These are populated from the exact pinned CLI help observations. They are
+# intentionally distinct from the required policy projection below.
+PROVIDER_HELP_SHA256 = {
+    "codex": "9f86f0115238ddde2514587e5f95b0ab0aa6b89495e5912878d49ad26038aa19",
+    "claude": "6c5e44dd5a1c5b04f7deb4d734ac6d2585561509c6a2d5deaed6914665e03b29",
+    "gemini": "b5c6e1af180f48adb3700982e7b06e905f29d2965f047eaeebd0b5c4f676b632",
 }
 PROVIDER_HELP_COMMANDS = {
     "codex": ["codex", "exec", "--help"],
@@ -102,12 +124,14 @@ def policy_projection_sha256(provider: str) -> str:
 
 PROVIDER_PINS = {
     provider: {
-        "cli_version": PROVIDER_VERSIONS[provider],
-        "help_policy_sha256": policy_projection_sha256(provider),
-        "tool_policy_sha256": (
+        "required_policy_projection_sha256": policy_projection_sha256(provider),
+        "required_tool_policy_sha256": (
             GEMINI_DENY_ALL_POLICY_SHA256 if provider == "gemini" else None
         ),
-        "entrypoint_sha256": PROVIDER_ENTRYPOINT_SHA256[provider],
+        "expected_cli_version": PROVIDER_VERSIONS[provider],
+        "expected_help_sha256": PROVIDER_HELP_SHA256[provider],
+        "expected_entrypoint_sha256": PROVIDER_ENTRYPOINT_SHA256[provider],
+        "expected_provider_exe_name": PROVIDER_EXE_NAMES[provider],
     }
     for provider in ("codex", "claude", "gemini")
 }
@@ -172,7 +196,21 @@ def write_json(path: Path, value: dict[str, Any]) -> None:
     )
 
 
-def attestation_result_sha256(path: Path) -> str:
+def parse_attestation_result(
+    path: Path,
+    *,
+    archive_sha256: str,
+    source_digest: str,
+    producer_run_id: int,
+    producer_run_attempt: int,
+) -> dict[str, Any]:
+    if (
+        not SHA256_RE.fullmatch(archive_sha256)
+        or not SHA1_RE.fullmatch(source_digest)
+        or producer_run_id <= 0
+        or producer_run_attempt <= 0
+    ):
+        raise ScaleReadinessError("attestation_expected_identity_invalid")
     try:
         if not path.is_file() or path.is_symlink() or path.stat().st_size > MAX_JSON_BYTES:
             raise ScaleReadinessError("attestation_result_invalid")
@@ -187,9 +225,79 @@ def attestation_result_sha256(path: Path) -> str:
         raise
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
         raise ScaleReadinessError("attestation_result_invalid") from exc
-    if not isinstance(value, list) or not value or any(not isinstance(item, dict) for item in value):
+    if (
+        not isinstance(value, list)
+        or len(value) != 1
+        or not isinstance(value[0], dict)
+    ):
         raise ScaleReadinessError("attestation_result_invalid")
-    return sha256_file(path)
+    result = value[0].get("verificationResult")
+    if not isinstance(result, dict):
+        raise ScaleReadinessError("attestation_result_invalid")
+    signature = result.get("signature")
+    certificate = signature.get("certificate") if isinstance(signature, dict) else None
+    statement = result.get("statement")
+    timestamps = result.get("verifiedTimestamps")
+    if (
+        not isinstance(certificate, dict)
+        or not isinstance(statement, dict)
+        or not isinstance(timestamps, list)
+        or not timestamps
+    ):
+        raise ScaleReadinessError("attestation_result_invalid")
+    for timestamp in timestamps:
+        if (
+            not isinstance(timestamp, dict)
+            or not isinstance(timestamp.get("type"), str)
+            or not timestamp["type"]
+            or not isinstance(timestamp.get("uri"), str)
+            or not timestamp["uri"]
+        ):
+            raise ScaleReadinessError("attestation_result_invalid")
+        parse_utc(timestamp.get("timestamp"))
+
+    expected_run_uri = (
+        f"{PRODUCER_REPOSITORY_URI}/actions/runs/{producer_run_id}/attempts/"
+        f"{producer_run_attempt}"
+    )
+    expected_certificate = {
+        "issuer": GITHUB_OIDC_ISSUER,
+        "subjectAlternativeName": PRODUCER_SIGNER_URI,
+        "buildSignerURI": PRODUCER_SIGNER_URI,
+        "runnerEnvironment": "self-hosted",
+        "sourceRepositoryURI": PRODUCER_REPOSITORY_URI,
+        "sourceRepositoryDigest": source_digest,
+        "sourceRepositoryRef": PRODUCER_SOURCE_REF,
+        "buildTrigger": "workflow_dispatch",
+        "runInvocationURI": expected_run_uri,
+    }
+    verified_certificate = {
+        name: certificate.get(name) for name in expected_certificate
+    }
+    if verified_certificate != expected_certificate:
+        raise ScaleReadinessError("attestation_identity_invalid")
+
+    if statement.get("predicateType") != SLSA_PROVENANCE_V1:
+        raise ScaleReadinessError("attestation_predicate_invalid")
+    subjects = statement.get("subject")
+    if (
+        not isinstance(subjects, list)
+        or len(subjects) != 1
+        or not isinstance(subjects[0], dict)
+        or subjects[0].get("name") != "scale-evidence.zip"
+        or subjects[0].get("digest") != {"sha256": archive_sha256}
+    ):
+        raise ScaleReadinessError("attestation_subject_invalid")
+    return {
+        "result_sha256": sha256_file(path),
+        "certificate": verified_certificate,
+        "predicate_type": statement["predicateType"],
+        "subject": {
+            "name": subjects[0]["name"],
+            "sha256": subjects[0]["digest"]["sha256"],
+        },
+        "verified_timestamp_count": len(timestamps),
+    }
 
 
 def canonical_json(value: Any) -> bytes:
@@ -212,6 +320,26 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def validate_consumer_actions_environment(
+    *,
+    run_id: int,
+    run_attempt: int,
+    actor: str,
+    source_sha: str,
+) -> None:
+    expected = {
+        "GITHUB_REPOSITORY": CONSUMER_REPOSITORY,
+        "GITHUB_WORKFLOW": CONSUMER_WORKFLOW,
+        "GITHUB_RUN_ID": str(run_id),
+        "GITHUB_RUN_ATTEMPT": str(run_attempt),
+        "GITHUB_ACTOR": actor,
+        "GITHUB_SHA": source_sha,
+        "GITHUB_REF": "refs/heads/main",
+    }
+    if any(os.environ.get(name) != value for name, value in expected.items()):
+        raise ScaleReadinessError("consumer_actions_context_invalid")
 
 
 def extract_archive(archive: Path, destination: Path) -> None:
@@ -419,10 +547,10 @@ def validate_invocation(value: Any, provider: str) -> None:
             "requested_auth_mode",
             "credential_env_allowlist",
             "argv_policy",
-            "cli_version",
-            "help_policy_sha256",
-            "tool_policy_sha256",
-            "entrypoint_sha256",
+            "observed_cli_version",
+            "observed_help_sha256",
+            "observed_entrypoint_sha256",
+            "observed_provider_exe_name",
         },
         "cli_invocation_invalid",
     )
@@ -432,12 +560,13 @@ def validate_invocation(value: Any, provider: str) -> None:
         raise ScaleReadinessError("requested_auth_mode_invalid")
     pin = PROVIDER_PINS[provider]
     for name in (
-        "cli_version",
-        "help_policy_sha256",
-        "tool_policy_sha256",
-        "entrypoint_sha256",
+        "observed_cli_version",
+        "observed_help_sha256",
+        "observed_entrypoint_sha256",
+        "observed_provider_exe_name",
     ):
-        if value.get(name) != pin[name]:
+        pin_name = name.replace("observed_", "expected_")
+        if value.get(name) != pin[pin_name]:
             raise ScaleReadinessError("provider_invocation_not_pinned")
     if value.get("credential_env_allowlist") != [
         {"codex": "OPENAI_API_KEY", "claude": "ANTHROPIC_API_KEY", "gemini": "GEMINI_API_KEY"}[provider]
@@ -468,13 +597,14 @@ def validate_guard_assertion(
             "spawn_alive_during_guard",
             "provider_in_spawn_tree",
             "same_session",
-            "spawn_pid",
+            "tree_root_pid",
             "provider_pid",
             "window_pid",
             "session_id",
             "class_name",
             "exe_name",
             "title_sha256",
+            "process_tree_projection",
             "process_tree_sha256",
             "provider_entrypoint_sha256",
         },
@@ -491,21 +621,74 @@ def validate_guard_assertion(
     )
     if any(claim.get(name) is not True for name in required_true):
         raise ScaleReadinessError("guard_assertion_invalid")
-    for name in ("spawn_pid", "provider_pid", "window_pid", "session_id"):
+    for name in ("tree_root_pid", "provider_pid", "window_pid", "session_id"):
         if exact_int(claim.get(name)) is None or claim[name] <= 0:
             raise ScaleReadinessError("guard_assertion_invalid")
+    if (
+        claim["tree_root_pid"] != claim["window_pid"]
+        or claim["provider_pid"] == claim["window_pid"]
+    ):
+        raise ScaleReadinessError("guard_assertion_invalid")
     if claim.get("class_name") != "CASCADIA_HOSTING_WINDOW_CLASS":
         raise ScaleReadinessError("guard_assertion_invalid")
-    if not isinstance(claim.get("exe_name"), str) or not SAFE_ID_RE.fullmatch(claim["exe_name"]):
-            raise ScaleReadinessError("guard_assertion_invalid")
+    if claim.get("exe_name") != "WindowsTerminal.exe":
+        raise ScaleReadinessError("guard_assertion_invalid")
     title_hash = sha256_bytes(f"SC_SCALE {provider} {role} {nonce}".encode())
     if claim.get("title_sha256") != title_hash:
         raise ScaleReadinessError("guard_assertion_invalid")
+    projection = claim.get("process_tree_projection")
+    if not isinstance(projection, list) or not (3 <= len(projection) <= 64):
+        raise ScaleReadinessError("guard_assertion_invalid")
+    seen_pids: set[int] = set()
+    parent_by_pid: dict[int, int | None] = {}
+    exe_by_pid: dict[int, str] = {}
+    for node in projection:
+        if not isinstance(node, dict) or set(node) != {"pid", "parent_pid", "exe_name"}:
+            raise ScaleReadinessError("guard_assertion_invalid")
+        pid = exact_int(node.get("pid"))
+        parent_pid = node.get("parent_pid")
+        if (
+            pid is None
+            or pid <= 0
+            or pid in seen_pids
+            or (parent_pid is not None and (exact_int(parent_pid) is None or parent_pid <= 0))
+            or not isinstance(node.get("exe_name"), str)
+            or not SAFE_ID_RE.fullmatch(node["exe_name"])
+        ):
+            raise ScaleReadinessError("guard_assertion_invalid")
+        seen_pids.add(pid)
+        parent_by_pid[pid] = parent_pid
+        exe_by_pid[pid] = node["exe_name"]
+    if [node["pid"] for node in projection] != sorted(seen_pids):
+        raise ScaleReadinessError("guard_assertion_invalid")
+    root = claim["tree_root_pid"]
+    if parent_by_pid.get(root) is not None or exe_by_pid.get(root) != "WindowsTerminal.exe":
+        raise ScaleReadinessError("guard_assertion_invalid")
+    if any(
+        pid != root and parent not in seen_pids
+        for pid, parent in parent_by_pid.items()
+    ):
+        raise ScaleReadinessError("guard_assertion_invalid")
+    provider_pid = claim["provider_pid"]
+    if exe_by_pid.get(provider_pid) != PROVIDER_EXE_NAMES[provider]:
+        raise ScaleReadinessError("guard_assertion_invalid")
+    for start_pid in seen_pids:
+        cursor = start_pid
+        visited: set[int] = set()
+        while cursor != root:
+            if cursor in visited or parent_by_pid.get(cursor) not in seen_pids:
+                raise ScaleReadinessError("guard_assertion_invalid")
+            visited.add(cursor)
+            cursor = parent_by_pid[cursor]  # type: ignore[assignment]
     tree = claim.get("process_tree_sha256")
-    if not isinstance(tree, str) or not SHA256_RE.fullmatch(tree):
+    if (
+        not isinstance(tree, str)
+        or not SHA256_RE.fullmatch(tree)
+        or tree != sha256_bytes(canonical_json(projection))
+    ):
         raise ScaleReadinessError("guard_assertion_invalid")
     if claim.get("provider_entrypoint_sha256") != PROVIDER_PINS[provider][
-        "entrypoint_sha256"
+        "expected_entrypoint_sha256"
     ]:
         raise ScaleReadinessError("guard_assertion_invalid")
 
@@ -620,17 +803,39 @@ def validate_rung(
             "uia_terminal",
         }:
             raise ScaleReadinessError("observed_ack_invalid")
-        for observation in observations.values():
+        observation_policy = {
+            "process_stdout": "provider_stdout_pipe",
+            "uia_terminal": "uia_text_capture",
+        }
+        observation_times: dict[str, datetime] = {}
+        observation_ids: set[str] = set()
+        for source, observation in observations.items():
             if not isinstance(observation, dict) or set(observation) != {
+                "event_id",
+                "source",
+                "provenance",
                 "sha256",
                 "captured_at_utc",
             }:
                 raise ScaleReadinessError("observed_ack_invalid")
             captured = parse_utc(observation.get("captured_at_utc"))
-            if observation.get("sha256") != sha256_bytes(expected.encode()) or not (
+            event_id = observation.get("event_id")
+            if (
+                not isinstance(event_id, str)
+                or not NONCE_RE.fullmatch(event_id)
+                or event_id in observation_ids
+                or observation.get("source") != source
+                or observation.get("provenance") != observation_policy[source]
+                or observation.get("sha256") != sha256_bytes(expected.encode())
+                or not (
                 agent_started <= captured <= agent_completed
+                )
             ):
                 raise ScaleReadinessError("observed_ack_invalid")
+            observation_ids.add(event_id)
+            observation_times[source] = captured
+        if observation_times["process_stdout"] >= observation_times["uia_terminal"]:
+            raise ScaleReadinessError("observed_ack_not_independent")
         outcome = agent.get("provider_outcome")
         if not isinstance(outcome, dict) or outcome != {
             "auth_failed": False,
@@ -661,7 +866,10 @@ def validate_bundle(
     expected_producer_run_attempt: int = 1,
     expected_producer_actor: str = "restricted-producer",
     producer_archive_sha256: str,
-    verified_attestation_result_sha256: str,
+    verified_attestation: dict[str, Any],
+    consumer_run_id: int,
+    consumer_run_attempt: int,
+    consumer_actor: str,
     now: datetime | None = None,
     max_evidence_age_hours: float = DEFAULT_MAX_EVIDENCE_AGE_HOURS,
 ) -> dict[str, Any]:
@@ -675,8 +883,13 @@ def validate_bundle(
         raise ScaleReadinessError("producer_actor_invalid")
     if not SHA256_RE.fullmatch(producer_archive_sha256):
         raise ScaleReadinessError("producer_archive_digest_invalid")
-    if not SHA256_RE.fullmatch(verified_attestation_result_sha256):
+    if (
+        not isinstance(verified_attestation, dict)
+        or not SHA256_RE.fullmatch(str(verified_attestation.get("result_sha256", "")))
+    ):
         raise ScaleReadinessError("attestation_result_digest_invalid")
+    if consumer_run_id <= 0 or consumer_run_attempt <= 0 or not SAFE_ID_RE.fullmatch(consumer_actor):
+        raise ScaleReadinessError("consumer_context_invalid")
     if (
         not math.isfinite(max_evidence_age_hours)
         or max_evidence_age_hours <= 0
@@ -784,12 +997,14 @@ def validate_bundle(
         "producer_actor": expected_producer_actor,
         "rungs": sorted(observed),
         "producer_archive_sha256": producer_archive_sha256,
-        "verified_attestation_result_sha256": verified_attestation_result_sha256,
-        "verified_attestation_identity": {
-            "repository": "rblake2320/selfconnect",
-            "signer_workflow": PRODUCER_SIGNER_WORKFLOW,
-            "source_ref": PRODUCER_SOURCE_REF,
-            "source_digest": core_head,
+        "verified_attestation": verified_attestation,
+        "consumer_context": {
+            "repository": CONSUMER_REPOSITORY,
+            "workflow": CONSUMER_WORKFLOW,
+            "run_id": consumer_run_id,
+            "run_attempt": consumer_run_attempt,
+            "actor": consumer_actor,
+            "source_sha": expected_ecosystem_sha.lower(),
         },
     }
 
@@ -809,8 +1024,12 @@ def main() -> int:
     verify.add_argument("--expected-producer-run-id", type=int, required=True)
     verify.add_argument("--expected-producer-run-attempt", type=int, required=True)
     verify.add_argument("--expected-producer-actor", required=True)
+    verify.add_argument("--expected-producer-source-sha", required=True)
     verify.add_argument("--producer-archive", type=Path, required=True)
     verify.add_argument("--verified-attestation-result", type=Path, required=True)
+    verify.add_argument("--consumer-run-id", type=int, required=True)
+    verify.add_argument("--consumer-run-attempt", type=int, required=True)
+    verify.add_argument("--consumer-actor", required=True)
     verify.add_argument("--report-file", type=Path)
     verify.add_argument(
         "--max-evidence-age-hours", type=float, default=DEFAULT_MAX_EVIDENCE_AGE_HOURS
@@ -828,16 +1047,31 @@ def main() -> int:
         print(json.dumps({"schema": SCHEMA, "ok": True, "status": "extracted"}, indent=2))
         return 0
     try:
+        validate_consumer_actions_environment(
+            run_id=args.consumer_run_id,
+            run_attempt=args.consumer_run_attempt,
+            actor=args.consumer_actor,
+            source_sha=args.expected_ecosystem_sha,
+        )
+        archive_sha256 = sha256_file(args.producer_archive.resolve())
+        attestation = parse_attestation_result(
+            args.verified_attestation_result.resolve(),
+            archive_sha256=archive_sha256,
+            source_digest=args.expected_producer_source_sha,
+            producer_run_id=args.expected_producer_run_id,
+            producer_run_attempt=args.expected_producer_run_attempt,
+        )
         report = validate_bundle(
             args.bundle.resolve(),
             expected_ecosystem_sha=args.expected_ecosystem_sha,
             expected_producer_run_id=args.expected_producer_run_id,
             expected_producer_run_attempt=args.expected_producer_run_attempt,
             expected_producer_actor=args.expected_producer_actor,
-            producer_archive_sha256=sha256_file(args.producer_archive.resolve()),
-            verified_attestation_result_sha256=attestation_result_sha256(
-                args.verified_attestation_result.resolve()
-            ),
+            producer_archive_sha256=archive_sha256,
+            verified_attestation=attestation,
+            consumer_run_id=args.consumer_run_id,
+            consumer_run_attempt=args.consumer_run_attempt,
+            consumer_actor=args.consumer_actor,
             max_evidence_age_hours=args.max_evidence_age_hours,
         )
     except ScaleReadinessError as exc:

@@ -16,8 +16,9 @@ not mistaken for oversight:
   producer, disposable runner group, protected environment, provider capacity,
   and successful attested run are prerequisites outside this change. Issue #5
   remains open until the core workflow executes all three exact provider rungs,
-  emits producer guard assertions and dual ACK observations under pinned
-  CLI/tool/entrypoint policies, the ecosystem
+  emits producer guard assertions and dual ACK observations with distinct event
+  provenance under separately pinned required and observed CLI/tool/entrypoint
+  policies, the ecosystem
   consumer accepts the current-head attestation, and retained non-secret
   evidence survives independent review. Legacy v3 output, unit fixtures,
   workflow existence, and issue state cannot close it. The paid ladder remains

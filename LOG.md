@@ -193,11 +193,23 @@
   This is contract implementation, not live proof: no restricted producer run
   has executed and issue #5 remains open.
 - Independent review then closed remaining composition gaps: both process-
-  stdout and UIA ACK observations are now mandatory and time-bound; roles are
-  owned by their named provider; invocations repeat exact version/help/tool-
-  policy/direct-entrypoint pins; and the report binds archive digest, producer
-  run/attempt/actor, and verified attestation identity. Guard data is explicitly
-  named a producer assertion rather than an independently signed receipt.
-- Final local consumer checkpoint: 84/84 repository unit tests and 35/35
-  focused scale-evidence tests pass. Both npm readiness scripts, Ruff on
-  changed Python files, Python compilation, YAML parsing, and diff checks pass.
+  stdout and UIA ACK observations now carry distinct event identifiers,
+  provenance labels, and strict temporal order; roles are owned by their named
+  provider; and static required-policy hashes are separate from observed
+  version/help/entrypoint/executable evidence. The consumer recomputes the
+  bounded process-tree projection and validates the producer's relational guard
+  assertion, but does not represent it as an independently observed receipt.
+- The consumer now parses GitHub CLI's verified attestation result instead of
+  accepting any non-empty JSON array. It binds the certificate signer/source/
+  ref/run fields, verified timestamp presence, SLSA predicate type, and exact
+  archive subject digest. The retained report derives that identity and adds
+  the consumer Actions run ID, attempt, actor, workflow, repository, and source
+  SHA before the report is provenance-attested.
+- Final local consumer checkpoint: 87/87 repository unit tests and 38/38
+  focused scale-evidence tests pass (including 48 adversarial subtests).
+  Producer-generated 10/15/20 fixtures passed the consumer cross-validation;
+  the producer's focused 26 tests also pass. Both readiness npm scripts, Ruff
+  on changed Python files, Python compilation, YAML parsing, and diff checks
+  pass. After a frozen-lockfile install, the full workspace npm suite passes
+  (17 passed, 6 live tests skipped). The untouched repository has two
+  pre-existing full-tree Ruff E741 findings outside this change.

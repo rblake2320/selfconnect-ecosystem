@@ -63,28 +63,35 @@ dedicated disposable Windows runner:
 The producer requires protected provider capacity and exact, isolated
 credential allowlists. Those credentials belong only in the core producer
 environment; none is configured in the ecosystem consumer. The producer pins
-the CLI versions, help-policy projections, direct package entrypoint hashes,
-and Gemini deny-all admin policy used for the run.
+  the required policy projections and Gemini deny-all policy separately from
+  observed CLI versions, canonical help-output hashes, direct package
+  entrypoint hashes, and provider executable names used for the run.
 
 Every agent must provide two reduced observations of the same standalone ACK:
-one captured from process stdout and one captured independently from UIA
-terminal text. Both SHA-256 values must equal the recomputed expected ACK, and
-both capture timestamps must fall inside the rung interval. Exit status must
+one captured from process stdout and one captured later from UIA terminal text.
+They carry different cryptorandom event IDs, fixed source/provenance labels, and
+strict stdout-before-UIA ordering. Both SHA-256 values must equal the recomputed
+expected ACK, and both capture timestamps must fall inside the agent interval. Exit status must
 be zero. This is producer-attested reduced evidence, not a provider-signed API
 receipt or proof of an absolute no-write property.
 
-The bundle deliberately retains the numeric spawn, provider, window, and
-session identifiers needed to check the producer's process-tree/window guard
-assertion. It excludes raw provider output, window-title text, local paths, and
-credential values. The guard assertion is integrity-bound by the GitHub-
+The bundle deliberately retains the numeric process-tree root, provider,
+window, and session identifiers plus a bounded PID/parent/executable projection
+needed to check the producer's process-tree/window guard assertion. The consumer
+recomputes that projection digest and requires the provider process to descend
+from the Windows Terminal root with the pinned provider executable and
+entrypoint. It excludes raw provider output, window-title text, local paths,
+and credential values. The guard assertion is integrity-bound by the GitHub-
 attested archive but is not represented as an independently signed guard
 receipt. Exact schemas reject extra fields and files.
 
 Before parsing, the ecosystem workflow verifies GitHub artifact provenance
 against the exact core signer workflow, `master` source ref, and producer run
-commit. Verification then binds the archive SHA-256, producer run ID, attempt,
-actor, source commit, current core head, and ecosystem contract commit into an
-attested consumer report. Missing/modified files, a wrong role-provider map,
+commit. The consumer then parses the verified certificate, timestamps, SLSA
+predicate and exact archive subject digest instead of accepting an opaque
+verification blob. Verification binds the archive SHA-256, producer run ID,
+attempt, actor, source commit, current core head, ecosystem contract commit, and
+consumer run ID/attempt/actor into an attested consumer report. Missing/modified files, a wrong role-provider map,
 reused nonce or run ID, stale/overlapping rungs, policy drift, quota/auth
 failure, or legacy v3 evidence fails closed. Closing or editing issue #5 cannot
 cause this gate to pass.

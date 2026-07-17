@@ -108,12 +108,17 @@ mistaken for execution evidence.
 
 The evidence bundle is a closed, reduced projection rather than raw provider
 output. GitHub artifact attestation provides the external integrity and signer
-boundary; in-bundle hashes alone are not treated as authenticity. Each agent
-retains a cryptorandom nonce, recomputed expected-ACK hash, two independently
-captured producer observations (stdout and UIA), a version-pinned CLI policy,
-and a digest over the producer's guarded spawn/process-tree/entrypoint/window
-assertion. The guard assertion is covered by the producer workflow's GitHub
-artifact attestation; it is not a separately signed receipt. Exact schemas and
+boundary; in-bundle hashes alone are not treated as authenticity. The consumer
+parses the verified certificate, timestamps, SLSA subject digest, source ref,
+source digest, signer workflow, and producer run URI rather than trusting a
+caller-supplied identity. Each agent retains a cryptorandom nonce, recomputed
+expected-ACK hash, two producer observations with distinct event identifiers,
+capture provenance, and strict stdout-before-UIA ordering. Static required-
+policy hashes remain distinct from observed CLI version/help/entrypoint data.
+The consumer recomputes the bounded process-tree projection and checks its
+window-root-to-provider relationship. This remains a producer assertion covered
+by the workflow's GitHub artifact attestation, not a separately observed or
+signed guard receipt. Exact schemas and
 cross-rung uniqueness checks prevent substituted
 shape-compatible evidence and unsupported claims from passing.
 
@@ -125,3 +130,8 @@ also pins a deny-all admin policy and sandbox request, while still describing
 the result only as requested restricted controls plus an observed exact ACK.
 The dedicated disposable runner and isolated provider environment remain
 mandatory defense-in-depth boundaries.
+
+The retained consumer report records its own GitHub Actions run ID, attempt,
+actor, workflow, repository, source SHA, and main-branch context. The verifier
+requires those values to match the live Actions environment before the report
+can say `ready`; the report is then separately provenance-attested.
