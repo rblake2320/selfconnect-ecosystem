@@ -277,3 +277,17 @@
   Ruff, Python compilation, workflow YAML parsing, `git diff --check`, and the
   frozen-lockfile workspace suite pass (17 JavaScript tests passed; 6
   credentialed live tests skipped).
+
+## 2026-07-17 R4 producer-fixture identity binding
+
+- Replaced the compatibility fixture with the producer PR #24 head `79a4432`
+  output generated after canonical strict-UTF-8 and newline-normalized source
+  hashing. The five copied files are byte-identical to the producer worktree.
+- `validate_contract_fixture()` now requires the vector's
+  `generator_source_sha256` to equal the manifest's
+  `code_identity.producer_sha256`, in addition to validating the closed file
+  set and every recorded bundle-file digest. The accepted generator digest is
+  `964de01a34285eb4a7fdf3bd3cd6f05bf4971c7e0644eb0c886fbd2c2717a0be`.
+- Added a regression proving a substituted generator identity fails closed
+  before the bundle reaches scale-readiness validation. This remains a
+  deterministic compatibility vector, not live-provider evidence.

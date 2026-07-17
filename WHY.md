@@ -155,3 +155,12 @@ The retained consumer report records its own GitHub Actions run ID, attempt,
 actor, workflow, repository, source SHA, and main-branch context. The verifier
 requires those values to match the live Actions environment before the report
 can say `ready`; the report is then separately provenance-attested.
+
+The checked-in producer compatibility vector binds two independent locations
+inside the generated fixture: the vector's generator-source digest and the
+manifest's producer-code digest must be identical. File hashes alone would
+detect edited bundle bytes but would not prove that the advertised generator
+identity matched the identity consumed by the normal manifest validator.
+Producer source hashing decodes strict UTF-8 and canonicalizes CRLF/CR to LF so
+the cross-repository identity is stable across supported checkout newline
+conventions without accepting invalid source bytes.

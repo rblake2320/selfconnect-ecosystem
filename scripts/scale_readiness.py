@@ -21,6 +21,7 @@ from typing import Any
 SCHEMA = "selfconnect.scale_readiness_evidence.v2"
 RUNG_SCHEMA = "selfconnect.restricted_scale_result.v2"
 LEGACY_SCHEMA = "selfconnect.real_agent_baseline.v3"
+CONTRACT_FIXTURE_SCHEMA = "selfconnect.restricted_scale_contract_fixture.v1"
 CORE_REMOTE = "https://github.com/rblake2320/selfconnect"
 CORE_BRANCH = "master"
 ECOSYSTEM_REPOSITORY = "rblake2320/selfconnect-ecosystem"
@@ -238,6 +239,64 @@ def write_json(path: Path, value: dict[str, Any]) -> None:
         json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+
+
+def validate_contract_fixture(root: Path) -> dict[str, Any]:
+    """Validate producer-generated compatibility bytes before contract tests use them."""
+    expected_bundle_files = {
+        "manifest.json",
+        *(f"rung-{count}.json" for count in RUNGS),
+    }
+    try:
+        if not root.is_dir() or root.is_symlink():
+            raise ScaleReadinessError("contract_fixture_invalid")
+        entries = {path.name for path in root.iterdir()}
+    except (OSError, UnicodeError) as exc:
+        raise ScaleReadinessError("contract_fixture_invalid") from exc
+    if entries != expected_bundle_files | {"vector.json"}:
+        raise ScaleReadinessError("contract_fixture_invalid")
+
+    vector = load_json(root / "vector.json")
+    require_exact_keys(
+        vector,
+        {"schema", "generator_source_sha256", "bundle_files"},
+        "contract_fixture_invalid",
+    )
+    generator_digest = vector.get("generator_source_sha256")
+    bundle_files = vector.get("bundle_files")
+    if (
+        vector.get("schema") != CONTRACT_FIXTURE_SCHEMA
+        or not isinstance(generator_digest, str)
+        or not SHA256_RE.fullmatch(generator_digest)
+        or not isinstance(bundle_files, dict)
+        or set(bundle_files) != expected_bundle_files
+    ):
+        raise ScaleReadinessError("contract_fixture_invalid")
+    try:
+        for name, expected_digest in bundle_files.items():
+            path = root / name
+            if (
+                not isinstance(expected_digest, str)
+                or not SHA256_RE.fullmatch(expected_digest)
+                or not path.is_file()
+                or path.is_symlink()
+                or path.stat().st_size > MAX_JSON_BYTES
+                or sha256_file(path) != expected_digest
+            ):
+                raise ScaleReadinessError("contract_fixture_digest_invalid")
+    except ScaleReadinessError:
+        raise
+    except OSError as exc:
+        raise ScaleReadinessError("contract_fixture_digest_invalid") from exc
+
+    manifest = load_json(root / "manifest.json")
+    code_identity = manifest.get("code_identity")
+    if (
+        not isinstance(code_identity, dict)
+        or code_identity.get("producer_sha256") != generator_digest
+    ):
+        raise ScaleReadinessError("contract_fixture_generator_identity_mismatch")
+    return vector
 
 
 def parse_attestation_result(

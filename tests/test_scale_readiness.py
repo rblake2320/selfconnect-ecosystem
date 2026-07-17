@@ -310,7 +310,7 @@ class ScaleReadinessTests(unittest.TestCase):
         )
 
     def test_producer_generated_bundle_vector_passes_production_validator(self) -> None:
-        vector = scale.load_json(PRODUCER_FIXTURE_ROOT / "vector.json")
+        vector = scale.validate_contract_fixture(PRODUCER_FIXTURE_ROOT)
         self.assertEqual(
             set(vector), {"schema", "generator_source_sha256", "bundle_files"}
         )
@@ -330,6 +330,11 @@ class ScaleReadinessTests(unittest.TestCase):
             self.assertEqual(
                 scale.sha256_file(PRODUCER_FIXTURE_ROOT / name), expected_digest
             )
+        manifest = scale.load_json(PRODUCER_FIXTURE_ROOT / "manifest.json")
+        self.assertEqual(
+            vector["generator_source_sha256"],
+            manifest["code_identity"]["producer_sha256"],
+        )
 
         with tempfile.TemporaryDirectory() as temp:
             bundle = Path(temp)
@@ -338,6 +343,19 @@ class ScaleReadinessTests(unittest.TestCase):
             report = self.validate(bundle)
         self.assertEqual(report["status"], "ready")
         self.assertEqual(report["rungs"], [10, 15, 20])
+
+    def test_fixture_generator_identity_mismatch_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for source in PRODUCER_FIXTURE_ROOT.iterdir():
+                (root / source.name).write_bytes(source.read_bytes())
+            vector = scale.load_json(root / "vector.json")
+            vector["generator_source_sha256"] = "0" * 64
+            scale.write_json(root / "vector.json", vector)
+            self.assert_status(
+                "contract_fixture_generator_identity_mismatch",
+                lambda: scale.validate_contract_fixture(root),
+            )
 
     def test_legacy_v3_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
