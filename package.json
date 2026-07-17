@@ -8,6 +8,7 @@
     "test": "pnpm -r run test",
     "readiness": "python scripts/readiness.py --markdown",
     "test:readiness": "python -m unittest discover -s tests -p test_readiness.py",
-    "test:scale-readiness": "python -m unittest discover -s tests -p test_scale_readiness.py"
+    "test:scale-readiness": "python -m unittest discover -s tests -p test_scale_readiness.py",
+    "test:merge-message": "python -m pytest tests/test_merge_message_gate.py -q"
   }
 }

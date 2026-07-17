@@ -22,6 +22,7 @@ CORE_HEAD = "a" * 40
 ECOSYSTEM_SHA = "b" * 40
 PRODUCER_RUN_ID = 123456
 CONSUMER_RUN_ID = 654321
+PRODUCER_FIXTURE_ROOT = ROOT / "tests" / "fixtures" / "restricted_scale_producer_bundle"
 
 
 def digest(text: str) -> str:
@@ -99,7 +100,7 @@ def agent(provider: str, ordinal: int, *, seed: str, observed_at: datetime) -> d
                 provider,
                 f"Reply with exactly this one line and nothing else: {expected}",
             ),
-            "actual_environment_names": scale.PROVIDER_ENV_NAMES[provider],
+            "constructed_initial_environment_names": scale.PROVIDER_ENV_NAMES[provider],
             "observed_cli_version": scale.PROVIDER_PINS[provider][
                 "expected_cli_version"
             ],
@@ -308,6 +309,36 @@ class ScaleReadinessTests(unittest.TestCase):
             },
         )
 
+    def test_producer_generated_bundle_vector_passes_production_validator(self) -> None:
+        vector = scale.load_json(PRODUCER_FIXTURE_ROOT / "vector.json")
+        self.assertEqual(
+            set(vector), {"schema", "generator_source_sha256", "bundle_files"}
+        )
+        self.assertEqual(
+            vector["schema"], "selfconnect.restricted_scale_contract_fixture.v1"
+        )
+        self.assertRegex(vector["generator_source_sha256"], r"^[0-9a-f]{64}$")
+        expected_files = {
+            "manifest.json",
+            "rung-10.json",
+            "rung-15.json",
+            "rung-20.json",
+        }
+        self.assertEqual(set(vector["bundle_files"]), expected_files)
+        for name, expected_digest in vector["bundle_files"].items():
+            self.assertRegex(expected_digest, r"^[0-9a-f]{64}$")
+            self.assertEqual(
+                scale.sha256_file(PRODUCER_FIXTURE_ROOT / name), expected_digest
+            )
+
+        with tempfile.TemporaryDirectory() as temp:
+            bundle = Path(temp)
+            for name in expected_files:
+                (bundle / name).write_bytes((PRODUCER_FIXTURE_ROOT / name).read_bytes())
+            report = self.validate(bundle)
+        self.assertEqual(report["status"], "ready")
+        self.assertEqual(report["rungs"], [10, 15, 20])
+
     def test_legacy_v3_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             bundle = Path(temp)
@@ -409,12 +440,29 @@ class ScaleReadinessTests(unittest.TestCase):
                 bundle,
                 15,
                 lambda value: value["agents"][0]["invocation"].update(
-                    actual_environment_names=["ANTHROPIC_API_KEY", "OPENAI_API_KEY"]
+                    constructed_initial_environment_names=[
+                        "ANTHROPIC_API_KEY",
+                        "OPENAI_API_KEY",
+                    ]
                 ),
             )
             self.assert_status(
                 "provider_env_not_isolated", lambda: self.validate(bundle)
             )
+
+    def test_old_actual_environment_field_has_no_compatibility_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            bundle = Path(temp)
+            build_bundle(bundle)
+
+            def restore_old_name(value: dict) -> None:
+                invocation = value["agents"][0]["invocation"]
+                invocation["actual_environment_names"] = invocation.pop(
+                    "constructed_initial_environment_names"
+                )
+
+            mutate_rung(bundle, 15, restore_old_name)
+            self.assert_status("cli_invocation_invalid", lambda: self.validate(bundle))
 
     def test_actual_provider_argv_is_exact_and_not_a_policy_request(self) -> None:
         for mutation, status in (

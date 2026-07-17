@@ -73,8 +73,10 @@ contents or absence of sensitive data.
 The producer pins the required policy projections and Gemini deny-all policy
 separately from observed CLI versions, canonical help-output hashes, direct
 package entrypoint hashes, and provider executable names used for the run. Each
-invocation records the actual provider argv projection and environment-variable
-names observed by the producer; the consumer requires the exact bounded values
+invocation records `actual_argv_projection` and
+`constructed_initial_environment_names`; the latter describes the environment
+constructed for child creation, not an externally read post-launch process
+environment. The consumer requires the exact bounded values
 and rejects the former requested-policy/credential-allowlist schema.
 
 Every agent must provide one reduced observation of the standalone ACK captured

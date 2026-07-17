@@ -1,0 +1,37 @@
+name: merge-message-gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  merge-message:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: Unit tests
+        run: |
+          pip install pytest==9.1.1
+          python -m pytest tests/test_merge_message_gate.py -q
+      - name: Reject evidence claims in intermediate PR commits
+        if: github.event_name == 'pull_request'
+        run: >-
+          python scripts/merge_message_gate.py scan-range
+          --base "${{ github.event.pull_request.base.sha }}"
+          --head "${{ github.event.pull_request.head.sha }}"
+      - name: Detect unmanaged first-parent commits on main
+        if: github.event_name == 'push'
+        run: >-
+          python scripts/merge_message_gate.py scan-main
+          --baseline d25b8a1372a15e2332c5b0551c28332dda5f4820
+          --head "${{ github.sha }}"

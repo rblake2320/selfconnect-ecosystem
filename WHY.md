@@ -1,5 +1,17 @@
 # Why
 
+## Working commit messages are not final evidence
+
+Adversarial development deliberately records failed approaches and provisional
+counts. GitHub's default squash body can preserve all of them even when the
+final code and PR body are corrected. The reviewed merge message is therefore
+an explicit artifact, not a concatenation. It binds the final text, the exact
+PR head, and a retained evidence file by digest.
+
+This is a detection and provenance control. A repository administrator can
+bypass any in-repository helper, so post-merge first-parent scanning remains
+mandatory and the boundary is stated rather than hidden.
+
 ## Readiness status and readiness evidence must be different checks
 
 The old hosted workflow always returned success because it ran the report
@@ -126,7 +138,8 @@ shape-compatible evidence and unsupported claims from passing.
 
 Provider safety claims stay narrow. Requested flags and credential allowlists
 are rejected as runtime evidence. The producer must record the actual provider
-argv projection and environment-variable names used for the child process; the
+argv projection and constructed initial environment-variable names passed at
+child creation; the
 consumer compares those to the exact bounded contract. This remains an attested
 producer observation, not a provider receipt or proof that a model made exactly
 one API call. Gemini's

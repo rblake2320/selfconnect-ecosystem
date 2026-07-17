@@ -1,5 +1,21 @@
 # Parked
 
+- **Cryptographic reviewer identity for merge trailers**: the reviewed-message
+  trailers are hashes, not signatures. They detect default/unmanaged merges and
+  bind retained inputs, but do not prove which person approved them. Adding a
+  protected external signer requires independent key custody and a verifier;
+  repository code cannot self-establish that custody.
+- **Absolute owner-bypass prevention**: the helper never uses `--admin`, and
+  branch protection should enforce checks for administrators. A repository
+  owner can still change protection or forge trailers. The post-merge scan
+  makes that state visible; it does not claim to make administration
+  impossible.
+- **Natural-language recall**: evidence/claim patterns cover named high-risk
+  result forms but cannot identify every possible paraphrase. The final message
+  is intentionally kept factual and result-free; retained structured evidence
+  carries the check outcome. Pattern expansion requires a reproduced bypass to
+  avoid turning ordinary engineering prose into false failures.
+
 Deliberately out of scope for the release claim scan, recorded so absence is
 not mistaken for oversight:
 
@@ -17,7 +33,8 @@ not mistaken for oversight:
   and successful attested run are prerequisites outside this change. Issue #5
   remains open until the core workflow executes all three exact provider rungs,
   emits producer guard assertions, a provider-stdout ACK observation, an
-  explicitly derivative terminal rendering, and actual argv/environment-name
+  explicitly derivative terminal rendering, actual argv, and constructed
+  initial environment-name
   projections under separately pinned required and observed CLI/tool/entrypoint
   policies, the ecosystem
   consumer accepts the current-head attestation, and retained non-secret

@@ -1,5 +1,24 @@
 # Change Log
 
+## 2026-07-17
+
+- Added an executable reviewed-squash gate after BPC PR #19 and TSK PR #11
+  retained superseded intermediate statements in GitHub-generated squash
+  messages. PR commits now reject evidence-like results; the merge helper
+  supplies an explicit final subject/body, binds it to the exact head and a
+  retained evidence digest, and never requests admin bypass.
+- Added first-parent detection after pinned baseline
+  `d25b8a1372a15e2332c5b0551c28332dda5f4820`. An unmanaged owner merge is
+  detectable and fails the gate; it is not claimed impossible.
+- Pinned that baseline as a workflow literal. Reading it from the candidate
+  tree would let an unmanaged commit advance the baseline to itself and evade
+  the scan.
+- Independent review found three additional weaknesses: final messages did not
+  receive the intermediate-evidence scan, empty arbitrary evidence could be
+  hashed, and verdict patterns overmatched ordinary prose. The final path now
+  uses narrower result-context patterns, scans final text too, requires strict
+  head-bound evidence JSON, and verifies its GitHub Actions run live.
+
 ## 2026-07-16 (fail-closed readiness and security boundary)
 
 - Reproduced hosted run `29509501237` succeeding while its own report said
@@ -226,7 +245,8 @@
   report distinguishes requested runner configuration, externally observed
   GitHub job metadata, and the attestation's runner environment.
 - Replaced requested auth/argv/credential-allowlist assertions with exact
-  producer-observed provider argv and environment-name projections. Extra or
+  producer-observed provider argv and constructed initial environment-name
+  projections. Extra or
   missing names, unsafe flags, or a requested-policy-shaped substitute fail.
 - Renamed the former `uia_terminal` ACK to `rendered_terminal_copy` and bound it
   to the provider-stdout event with `derivative_of_event_id`. A terminal render
@@ -238,3 +258,22 @@
   Python repository tests, readiness scripts, Ruff, Python compilation, YAML
   parsing, `git diff --check`, and the frozen-lockfile workspace test suite pass
   (17 JavaScript tests passed; 6 credentialed live tests remained skipped).
+
+## 2026-07-17 R3 consumer contract correction
+
+- Renamed `actual_environment_names` to
+  `constructed_initial_environment_names`. The producer can establish which
+  names it placed into the child-creation environment; it does not externally
+  read a launched process environment. The old field is rejected with no
+  compatibility fallback.
+- Reconciled the draft with ecosystem `main` after the reviewed merge-message
+  gate landed, retaining both test commands in `package.json`.
+- Added a producer-generated sanitized bundle vector as the cross-repository
+  compatibility fixture. Producer tests regenerate and byte-compare the same
+  files; consumer tests verify their digests and pass them through the
+  production validator. This does not substitute for a live provider run.
+- R3 verification: 43 focused scale-contract tests (52 subtests), 92 unittest
+  repository tests, 31 merge-message tests, all readiness commands, changed-file
+  Ruff, Python compilation, workflow YAML parsing, `git diff --check`, and the
+  frozen-lockfile workspace suite pass (17 JavaScript tests passed; 6
+  credentialed live tests skipped).

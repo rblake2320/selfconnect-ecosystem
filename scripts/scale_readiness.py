@@ -736,7 +736,7 @@ def validate_invocation(value: Any, provider: str, prompt: str) -> None:
             "provider",
             "exit_code",
             "actual_argv_projection",
-            "actual_environment_names",
+            "constructed_initial_environment_names",
             "observed_cli_version",
             "observed_help_sha256",
             "observed_entrypoint_sha256",
@@ -756,7 +756,10 @@ def validate_invocation(value: Any, provider: str, prompt: str) -> None:
         pin_name = name.replace("observed_", "expected_")
         if value.get(name) != pin[pin_name]:
             raise ScaleReadinessError("provider_invocation_not_pinned")
-    if value.get("actual_environment_names") != PROVIDER_ENV_NAMES[provider]:
+    if (
+        value.get("constructed_initial_environment_names")
+        != PROVIDER_ENV_NAMES[provider]
+    ):
         raise ScaleReadinessError("provider_env_not_isolated")
     argv = value.get("actual_argv_projection")
     if not isinstance(argv, list) or any(not isinstance(item, str) for item in argv):
