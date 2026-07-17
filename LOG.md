@@ -10,6 +10,9 @@
 - Added first-parent detection after pinned baseline
   `d25b8a1372a15e2332c5b0551c28332dda5f4820`. An unmanaged owner merge is
   detectable and fails the gate; it is not claimed impossible.
+- Pinned that baseline as a workflow literal. Reading it from the candidate
+  tree would let an unmanaged commit advance the baseline to itself and evade
+  the scan.
 
 ## 2026-07-16 (fail-closed readiness and security boundary)
 

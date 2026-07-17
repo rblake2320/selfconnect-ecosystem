@@ -28,5 +28,8 @@ reviewed trailers. The latter is detection: an administrator can bypass the
 helper, but the unmanaged result turns the gate red and cannot be cited as
 governed evidence.
 
-Do not advance `scripts/merge_message_baseline.txt` to hide a failure. A
-baseline change requires a dated `LOG.md` incident/boundary record and review.
+The adoption baseline is an immutable literal in the workflow, not a file read
+from the commit being evaluated. This prevents a bypassing commit from moving
+the baseline to itself and producing an empty scan. A later baseline change
+requires a separately reviewed workflow change and dated incident/boundary
+record; it must never be used to hide an unmanaged commit.

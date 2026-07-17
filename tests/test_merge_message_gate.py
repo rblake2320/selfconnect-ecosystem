@@ -81,6 +81,27 @@ def test_unknown_trailer_text_fails():
         verify_reviewed_message(message() + "Unknown-Trailer: value\n")
 
 
+def test_reserved_trailer_in_reviewed_body_fails():
+    with pytest.raises(GateError, match="reserved trailer"):
+        compose_message(
+            "fix: subject",
+            "body\nSelfConnect-Reviewed-Head-SHA: " + HEAD,
+            b"evidence",
+            HEAD,
+        )
+
+
+def test_workflow_baseline_is_not_candidate_controlled():
+    workflow = (
+        pathlib.Path(__file__).parents[1]
+        / ".github"
+        / "workflows"
+        / "merge-message-gate.yml"
+    ).read_text(encoding="utf-8")
+    assert "--baseline d25b8a1372a15e2332c5b0551c28332dda5f4820" in workflow
+    assert "--baseline-file" not in workflow
+
+
 def test_merge_body_does_not_duplicate_subject():
     body = merge_body("fix: subject", "reviewed body", b"evidence", HEAD)
     assert not body.startswith("fix: subject")

@@ -21,6 +21,9 @@ from release_claim_scan import find_claims
 TRAILER_CONTENT = "SelfConnect-Reviewed-Content-SHA256"
 TRAILER_EVIDENCE = "SelfConnect-Reviewed-Evidence-SHA256"
 TRAILER_HEAD = "SelfConnect-Reviewed-Head-SHA"
+RESERVED_TRAILER_RE = re.compile(
+    r"(?mi)^SelfConnect-Reviewed-(?:Content-SHA256|Evidence-SHA256|Head-SHA):"
+)
 
 EVIDENCE_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\b\d+\s*/\s*\d+\s+(?:tests?|checks?|passed|green)\b", "numeric test/check result"),
@@ -91,6 +94,8 @@ def compose_message(subject: str, body: str, evidence: bytes, head_sha: str) -> 
         raise GateError("subject must be one non-empty line")
     if not re.fullmatch(r"[0-9a-f]{40}", head_sha):
         raise GateError("head SHA must be 40 lowercase hexadecimal characters")
+    if RESERVED_TRAILER_RE.search(f"{subject}\n{body}"):
+        raise GateError("reviewed subject/body contains a reserved trailer name")
     claims = [hit["label"] for hit in find_claims(f"{subject}\n{body}")]
     if claims:
         raise GateError("reviewed message contains prohibited capability claims: " + ", ".join(sorted(set(claims))))
@@ -271,7 +276,7 @@ def main(argv: list[str] | None = None) -> int:
     verify.add_argument("--message-file", required=True)
 
     main_scan = sub.add_parser("scan-main")
-    main_scan.add_argument("--baseline-file", required=True)
+    main_scan.add_argument("--baseline", required=True)
     main_scan.add_argument("--head", default="HEAD")
 
     args = parser.parse_args(argv)
@@ -299,9 +304,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "verify-message":
             verify_reviewed_message(read_text(args.message_file))
             return 0
-        baseline = read_text(args.baseline_file).strip()
+        baseline = args.baseline.strip()
         if not re.fullmatch(r"[0-9a-f]{40}", baseline):
-            raise GateError("baseline file must contain one full lowercase commit SHA")
+            raise GateError("baseline must be one full lowercase commit SHA")
         failures = scan_main(baseline, args.head)
         for commit, reason in failures:
             print(f"FAIL {commit}: {reason}")
