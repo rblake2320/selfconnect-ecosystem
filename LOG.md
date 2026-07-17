@@ -291,3 +291,13 @@
 - Added a regression proving a substituted generator identity fails closed
   before the bundle reaches scale-readiness validation. This remains a
   deterministic compatibility vector, not live-provider evidence.
+
+## 2026-07-17 R5 fixture entry preflight
+
+- Moved exact-entry validation ahead of `vector.json` parsing. All five required
+  files must be bounded regular files and must not be symlinks.
+- Added a direct regression where `vector.json` is replaced by a symlink to an
+  identical external file; validation now fails with
+  `contract_fixture_invalid` before reading the JSON.
+- This closes a local path-integrity gap only. Hash agreement inside a fixture
+  remains internal consistency, not producer authenticity or live evidence.

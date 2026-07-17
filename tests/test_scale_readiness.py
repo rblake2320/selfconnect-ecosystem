@@ -357,6 +357,27 @@ class ScaleReadinessTests(unittest.TestCase):
                 lambda: scale.validate_contract_fixture(root),
             )
 
+    def test_external_identical_vector_symlink_fails_before_json_parse(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            root = parent / "bundle"
+            root.mkdir()
+            for source in PRODUCER_FIXTURE_ROOT.iterdir():
+                (root / source.name).write_bytes(source.read_bytes())
+            external = parent / "external-vector.json"
+            external.write_bytes((root / "vector.json").read_bytes())
+            (root / "vector.json").unlink()
+            try:
+                (root / "vector.json").symlink_to(external)
+            except OSError as exc:
+                self.skipTest(f"file symlink creation unavailable: {exc}")
+            self.assertTrue((root / "vector.json").is_file())
+            self.assertTrue((root / "vector.json").is_symlink())
+            self.assert_status(
+                "contract_fixture_invalid",
+                lambda: scale.validate_contract_fixture(root),
+            )
+
     def test_legacy_v3_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             bundle = Path(temp)

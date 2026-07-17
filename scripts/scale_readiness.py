@@ -247,14 +247,25 @@ def validate_contract_fixture(root: Path) -> dict[str, Any]:
         "manifest.json",
         *(f"rung-{count}.json" for count in RUNGS),
     }
+    expected_entries = expected_bundle_files | {"vector.json"}
     try:
         if not root.is_dir() or root.is_symlink():
             raise ScaleReadinessError("contract_fixture_invalid")
         entries = {path.name for path in root.iterdir()}
+        if entries != expected_entries:
+            raise ScaleReadinessError("contract_fixture_invalid")
+        for name in expected_entries:
+            path = root / name
+            if (
+                not path.is_file()
+                or path.is_symlink()
+                or path.stat().st_size > MAX_JSON_BYTES
+            ):
+                raise ScaleReadinessError("contract_fixture_invalid")
+    except ScaleReadinessError:
+        raise
     except (OSError, UnicodeError) as exc:
         raise ScaleReadinessError("contract_fixture_invalid") from exc
-    if entries != expected_bundle_files | {"vector.json"}:
-        raise ScaleReadinessError("contract_fixture_invalid")
 
     vector = load_json(root / "vector.json")
     require_exact_keys(
