@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collect and verify real-agent 10/15/20 scale-ladder evidence."""
+"""Verify attested restricted-producer 10/15/20 scale evidence."""
 
 from __future__ import annotations
 
@@ -7,43 +7,99 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import re
+import shutil
 import subprocess
 import sys
-import tempfile
+import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 
-SCHEMA = "selfconnect.scale_readiness_evidence.v1"
-RUNG_SCHEMA = "selfconnect.scale_readiness_rung.v1"
-SOURCE_SCHEMA = "selfconnect.real_agent_baseline.v3"
+SCHEMA = "selfconnect.scale_readiness_evidence.v2"
+RUNG_SCHEMA = "selfconnect.restricted_scale_result.v2"
+LEGACY_SCHEMA = "selfconnect.real_agent_baseline.v3"
 CORE_REMOTE = "https://github.com/rblake2320/selfconnect"
 CORE_BRANCH = "master"
+ECOSYSTEM_REPOSITORY = "rblake2320/selfconnect-ecosystem"
+PRODUCER_WORKFLOW = "Restricted Real-Agent Scale Producer"
+PRODUCER_ENVIRONMENT = "scale-readiness-producer"
+PRODUCER_RUNNER_GROUP = "selfconnect-scale-ephemeral"
 DEFAULT_MAX_EVIDENCE_AGE_HOURS = 168.0
 MAX_EVIDENCE_AGE_HOURS = 168.0
 MAX_FUTURE_SKEW = timedelta(minutes=5)
+MAX_RUNG_DURATION = timedelta(minutes=30)
 MAX_JSON_BYTES = 2 * 1024 * 1024
+MAX_ARCHIVE_BYTES = 10 * 1024 * 1024
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-RUN_ID_RE = re.compile(r"^SC_REAL5_\d{8}_\d{6}$")
+SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
+NONCE_RE = re.compile(r"^[0-9a-f]{64}$")
+RUN_ID_RE = re.compile(r"^SC_SCALE_[0-9a-f]{32}$")
+SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 
-RUNGS: dict[int, dict[str, Any]] = {
-    10: {
-        "providers": "gemini:10",
-        "provider_counts": {"gemini": 10},
-        "timeout": 1200,
-    },
-    15: {
-        "providers": "codex:5,claude:5,gemini:5",
-        "provider_counts": {"claude": 5, "codex": 5, "gemini": 5},
-        "timeout": 900,
-    },
-    20: {
-        "providers": "codex:7,claude:7,gemini:6",
-        "provider_counts": {"claude": 7, "codex": 7, "gemini": 6},
-        "timeout": 1200,
-    },
+RUNGS: dict[int, dict[str, int]] = {
+    10: {"gemini": 10},
+    15: {"claude": 5, "codex": 5, "gemini": 5},
+    20: {"claude": 7, "codex": 7, "gemini": 6},
+}
+
+REQUIRED_RESTRICTED_MODES = {
+    "codex": ["exec", "--sandbox", "read-only", "--ephemeral", "--ignore-user-config"],
+    "claude": ["--print", "--bare", "--safe-mode", "--permission-mode", "plan", "--tools", ""],
+    "gemini": ["--prompt", "--approval-mode", "plan", "--sandbox", "--admin-policy"],
+}
+GEMINI_DENY_ALL_POLICY_SHA256 = "ff0198012262e2a478eb9d26ebe175924079cc7d16379ef809d18c012649029a"
+PROVIDER_VERSIONS = {
+    "codex": "codex-cli 0.144.4",
+    "claude": "2.1.183 (Claude Code)",
+    "gemini": "0.46.0",
+}
+PROVIDER_HELP_COMMANDS = {
+    "codex": ["codex", "exec", "--help"],
+    "claude": ["claude", "--help"],
+    "gemini": ["gemini", "--help"],
+}
+FORBIDDEN_MODE_TOKENS = {
+    "--dangerously-bypass-approvals-and-sandbox",
+    "--dangerously-skip-permissions",
+    "bypassPermissions",
+    "--yolo",
+    "yolo",
+    "--skip-trust",
+}
+
+
+def provider_policy_projection(provider: str) -> dict[str, Any]:
+    return {
+        "provider": provider,
+        "cli_version": PROVIDER_VERSIONS[provider],
+        "help_command": PROVIDER_HELP_COMMANDS[provider],
+        "required_runtime_policy": REQUIRED_RESTRICTED_MODES[provider],
+        "forbidden_runtime_tokens": sorted(FORBIDDEN_MODE_TOKENS),
+    }
+
+
+def policy_projection_sha256(provider: str) -> str:
+    payload = json.dumps(
+        provider_policy_projection(provider),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+PROVIDER_PINS = {
+    provider: {
+        "cli_version": PROVIDER_VERSIONS[provider],
+        "help_policy_sha256": policy_projection_sha256(provider),
+        "tool_policy_sha256": (
+            GEMINI_DENY_ALL_POLICY_SHA256 if provider == "gemini" else None
+        ),
+    }
+    for provider in ("codex", "claude", "gemini")
 }
 
 
@@ -53,6 +109,21 @@ class ScaleReadinessError(RuntimeError):
     def __init__(self, status: str) -> None:
         super().__init__(status)
         self.status = status
+
+
+def exact_int(value: Any) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def exact_provider_counts(value: Any, expected: dict[str, int]) -> bool:
+    if not isinstance(value, dict) or set(value) != set(expected):
+        return False
+    return all(exact_int(value.get(name)) == count for name, count in expected.items())
+
+
+def require_exact_keys(value: dict[str, Any], expected: set[str], status: str) -> None:
+    if set(value) != expected:
+        raise ScaleReadinessError(status)
 
 
 def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -91,12 +162,61 @@ def write_json(path: Path, value: dict[str, Any]) -> None:
     )
 
 
+def canonical_json(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def extract_archive(archive: Path, destination: Path) -> None:
+    """Extract the exact bounded evidence bundle without ZIP path traversal."""
+    expected = {"manifest.json", *(f"rung-{count}.json" for count in RUNGS)}
+    try:
+        if not archive.is_file() or archive.is_symlink() or archive.stat().st_size > MAX_ARCHIVE_BYTES:
+            raise ScaleReadinessError("evidence_archive_invalid")
+        if destination.exists():
+            raise ScaleReadinessError("evidence_destination_not_empty")
+        with zipfile.ZipFile(archive) as bundle:
+            infos = bundle.infolist()
+            names = [info.filename for info in infos]
+            if len(names) != len(set(names)) or set(names) != expected:
+                raise ScaleReadinessError("evidence_archive_contents_invalid")
+            for info in infos:
+                unix_mode = info.external_attr >> 16
+                if (
+                    info.is_dir()
+                    or info.flag_bits & 0x1
+                    or info.file_size > MAX_JSON_BYTES
+                    or info.compress_size > MAX_ARCHIVE_BYTES
+                    or (unix_mode & 0o170000) == 0o120000
+                ):
+                    raise ScaleReadinessError("evidence_archive_entry_invalid")
+            destination.mkdir(parents=True, exist_ok=True)
+            for info in infos:
+                payload = bundle.read(info)
+                if len(payload) != info.file_size:
+                    raise ScaleReadinessError("evidence_archive_entry_invalid")
+                (destination / info.filename).write_bytes(payload)
+    except ScaleReadinessError:
+        raise
+    except (OSError, zipfile.BadZipFile, RuntimeError, ValueError) as exc:
+        raise ScaleReadinessError("evidence_archive_invalid") from exc
 
 
 def parse_utc(value: Any) -> datetime:
@@ -112,280 +232,364 @@ def parse_utc(value: Any) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
-def normalize_remote_url(value: str) -> str:
-    remote = value.strip().replace("\\", "/")
-    match = re.fullmatch(r"git@github\.com:(.+)", remote, flags=re.IGNORECASE)
-    if match:
-        remote = f"https://github.com/{match.group(1)}"
-    elif remote.lower().startswith("ssh://git@github.com/"):
-        remote = "https://github.com/" + remote[len("ssh://git@github.com/") :]
-    remote = remote.rstrip("/")
-    if remote.lower().endswith(".git"):
-        remote = remote[:-4]
-    return remote.lower()
-
-
-def run_command(
-    args: list[str],
-    *,
-    cwd: Path,
-    timeout: int = 60,
-) -> subprocess.CompletedProcess[str]:
+def remote_core_head() -> str:
+    git = shutil.which("git")
+    if not git:
+        raise ScaleReadinessError("core_remote_head_unavailable")
+    safe_path = str(Path(git).parent)
+    system_root = os.environ.get("SystemRoot", r"C:\Windows")
     try:
-        return subprocess.run(
-            args,
-            cwd=cwd,
+        result = subprocess.run(
+            [git, "ls-remote", "--exit-code", CORE_REMOTE, f"refs/heads/{CORE_BRANCH}"],
             text=True,
             encoding="utf-8",
             errors="strict",
             capture_output=True,
             check=False,
-            timeout=timeout,
+            timeout=30,
+            env={
+                "PATH": safe_path,
+                "SystemRoot": system_root,
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_CONFIG_GLOBAL": "NUL" if sys.platform == "win32" else "/dev/null",
+                "GIT_TERMINAL_PROMPT": "0",
+            },
         )
-    except (OSError, subprocess.TimeoutExpired, UnicodeError) as exc:
-        raise ScaleReadinessError("command_failed") from exc
-
-
-def current_core_identity(core_repo: Path) -> dict[str, str]:
-    if not core_repo.is_dir():
-        raise ScaleReadinessError("core_repo_missing")
-
-    commands = {
-        "status": ["git", "status", "--porcelain=v1", "--untracked-files=normal"],
-        "head": ["git", "rev-parse", "HEAD"],
-        "branch": ["git", "symbolic-ref", "--quiet", "--short", "HEAD"],
-        "remote": ["git", "remote", "get-url", "origin"],
-    }
-    results = {
-        name: run_command(command, cwd=core_repo)
-        for name, command in commands.items()
-    }
-    if any(result.returncode != 0 for result in results.values()):
-        raise ScaleReadinessError("core_repo_query_failed")
-    if results["status"].stdout.strip():
-        raise ScaleReadinessError("core_repo_dirty")
-    if results["branch"].stdout.strip() != CORE_BRANCH:
-        raise ScaleReadinessError("core_repo_wrong_branch")
-    if normalize_remote_url(results["remote"].stdout) != normalize_remote_url(CORE_REMOTE):
-        raise ScaleReadinessError("core_repo_wrong_remote")
-
-    remote = run_command(
-        ["git", "ls-remote", "--exit-code", CORE_REMOTE, f"refs/heads/{CORE_BRANCH}"],
-        cwd=core_repo,
-    )
-    fields = remote.stdout.split()
-    if remote.returncode != 0 or len(fields) != 2:
+    except (OSError, UnicodeError, subprocess.TimeoutExpired) as exc:
+        raise ScaleReadinessError("core_remote_head_unavailable") from exc
+    fields = result.stdout.split()
+    if result.returncode != 0 or len(fields) != 2 or not SHA1_RE.fullmatch(fields[0].lower()):
         raise ScaleReadinessError("core_remote_head_unavailable")
-    local_head = results["head"].stdout.strip().lower()
-    remote_head = fields[0].lower()
-    if not re.fullmatch(r"[0-9a-f]{40}", local_head) or local_head != remote_head:
-        raise ScaleReadinessError("core_repo_not_current")
+    return fields[0].lower()
+
+
+def expected_roles(provider_counts: dict[str, int]) -> set[str]:
     return {
-        "remote_url": CORE_REMOTE,
-        "branch": CORE_BRANCH,
-        "head_sha": local_head,
+        f"real{provider}-{ordinal}"
+        for provider, count in provider_counts.items()
+        for ordinal in range(1, count + 1)
     }
 
 
-def exact_int(value: Any) -> int | None:
-    return value if isinstance(value, int) and not isinstance(value, bool) else None
+def expected_ack(provider: str, role: str, nonce: str) -> str:
+    return f"ACK_REAL_VENDOR provider={provider} role={role} nonce={nonce}"
 
 
-def exact_provider_counts(value: Any, expected: dict[str, int]) -> bool:
-    if not isinstance(value, dict) or set(value) != set(expected):
-        return False
-    return all(exact_int(value.get(name)) == count for name, count in expected.items())
+def validate_workflow_context(
+    value: Any,
+    *,
+    expected_ecosystem_sha: str,
+    expected_producer_run_id: int,
+    expected_producer_run_attempt: int,
+    expected_producer_actor: str,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ScaleReadinessError("producer_context_invalid")
+    require_exact_keys(
+        value,
+        {
+            "repository",
+            "workflow",
+            "environment",
+            "runner_group",
+            "ref",
+            "producer_run_id",
+            "producer_run_attempt",
+            "actor",
+            "ephemeral_runner",
+            "dedicated_runner",
+            "sensitive_repositories_present",
+            "runner_image_sha256",
+            "ecosystem_contract_sha",
+            "core_head_sha",
+        },
+        "producer_context_invalid",
+    )
+    expected = {
+        "repository": "rblake2320/selfconnect",
+        "workflow": PRODUCER_WORKFLOW,
+        "environment": PRODUCER_ENVIRONMENT,
+        "runner_group": PRODUCER_RUNNER_GROUP,
+        "ref": "refs/heads/master",
+        "producer_run_id": expected_producer_run_id,
+        "producer_run_attempt": expected_producer_run_attempt,
+        "actor": expected_producer_actor,
+        "ecosystem_contract_sha": expected_ecosystem_sha,
+    }
+    for name, wanted in expected.items():
+        actual = value.get(name)
+        if name in {"producer_run_id", "producer_run_attempt"}:
+            actual = exact_int(actual)
+        if actual != wanted:
+            raise ScaleReadinessError("producer_context_invalid")
+    if exact_int(value.get("producer_run_attempt")) is None or value["producer_run_attempt"] <= 0:
+        raise ScaleReadinessError("producer_context_invalid")
+    if not isinstance(value.get("actor"), str) or not SAFE_ID_RE.fullmatch(value["actor"]):
+        raise ScaleReadinessError("producer_context_invalid")
+    if value.get("ephemeral_runner") is not True:
+        raise ScaleReadinessError("producer_runner_not_ephemeral")
+    if value.get("dedicated_runner") is not True:
+        raise ScaleReadinessError("producer_runner_not_dedicated")
+    if value.get("sensitive_repositories_present") is not False:
+        raise ScaleReadinessError("producer_runner_not_isolated")
+    image = value.get("runner_image_sha256")
+    if not isinstance(image, str) or not SHA256_RE.fullmatch(image):
+        raise ScaleReadinessError("producer_image_unpinned")
+    return value
 
 
-def validate_source_result(source: dict[str, Any], agent_count: int) -> dict[str, Any]:
-    expected = RUNGS[agent_count]
-    if source.get("schema") != SOURCE_SCHEMA:
-        raise ScaleReadinessError("source_schema_invalid")
-    if source.get("verdict") != "PASS":
+def validate_code_identity(value: Any, core_head: str) -> None:
+    if not isinstance(value, dict):
+        raise ScaleReadinessError("producer_code_identity_invalid")
+    require_exact_keys(
+        value,
+        {
+            "core_remote",
+            "core_branch",
+            "core_head_sha",
+            "fresh_detached_checkout",
+            "git_config_cleared",
+            "python_env_cleared",
+            "core_tree_sha256",
+            "producer_sha256",
+            "guard_module_sha256",
+        },
+        "producer_code_identity_invalid",
+    )
+    exact = {
+        "core_remote": CORE_REMOTE,
+        "core_branch": CORE_BRANCH,
+        "core_head_sha": core_head,
+        "fresh_detached_checkout": True,
+        "git_config_cleared": True,
+        "python_env_cleared": True,
+    }
+    for name, wanted in exact.items():
+        if value.get(name) != wanted:
+            raise ScaleReadinessError("producer_code_identity_invalid")
+    for name in ("core_tree_sha256", "producer_sha256", "guard_module_sha256"):
+        digest = value.get(name)
+        if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+            raise ScaleReadinessError("producer_code_identity_invalid")
+
+
+def validate_provider_pins(value: Any) -> None:
+    if value != PROVIDER_PINS:
+        raise ScaleReadinessError("provider_cli_policy_not_pinned")
+
+
+def validate_invocation(value: Any, provider: str) -> None:
+    if not isinstance(value, dict):
+        raise ScaleReadinessError("cli_invocation_invalid")
+    require_exact_keys(
+        value,
+        {
+            "provider",
+            "exit_code",
+            "requested_auth_mode",
+            "credential_env_allowlist",
+            "argv_policy",
+            "executable_sha256",
+        },
+        "cli_invocation_invalid",
+    )
+    if value.get("provider") != provider or value.get("exit_code") != 0:
+        raise ScaleReadinessError("cli_invocation_invalid")
+    if value.get("requested_auth_mode") != "api-key":
+        raise ScaleReadinessError("requested_auth_mode_invalid")
+    if value.get("credential_env_allowlist") != [
+        {"codex": "OPENAI_API_KEY", "claude": "ANTHROPIC_API_KEY", "gemini": "GEMINI_API_KEY"}[provider]
+    ]:
+        raise ScaleReadinessError("provider_env_not_isolated")
+    argv = value.get("argv_policy")
+    if not isinstance(argv, list) or any(not isinstance(item, str) for item in argv):
+        raise ScaleReadinessError("cli_invocation_invalid")
+    if FORBIDDEN_MODE_TOKENS.intersection(argv):
+        raise ScaleReadinessError("provider_mode_not_restricted")
+    if argv != REQUIRED_RESTRICTED_MODES[provider]:
+        raise ScaleReadinessError("cli_invocation_invalid")
+    digest = value.get("executable_sha256")
+    if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+        raise ScaleReadinessError("provider_executable_unpinned")
+
+
+def validate_guard(value: Any, *, provider: str, role: str, nonce: str) -> None:
+    if not isinstance(value, dict):
+        raise ScaleReadinessError("guard_receipt_invalid")
+    require_exact_keys(value, {"claim", "digest"}, "guard_receipt_invalid")
+    claim = value.get("claim")
+    digest = value.get("digest")
+    if not isinstance(claim, dict) or not isinstance(digest, str):
+        raise ScaleReadinessError("guard_receipt_invalid")
+    require_exact_keys(
+        claim,
+        {
+            "pre_guard_ok",
+            "post_guard_ok",
+            "spawn_alive_during_guard",
+            "provider_in_spawn_tree",
+            "same_session",
+            "spawn_pid",
+            "provider_pid",
+            "window_pid",
+            "session_id",
+            "class_name",
+            "exe_name",
+            "title_sha256",
+            "process_tree_sha256",
+        },
+        "guard_receipt_invalid",
+    )
+    if not SHA256_RE.fullmatch(digest) or sha256_bytes(canonical_json(claim)) != digest:
+        raise ScaleReadinessError("guard_digest_invalid")
+    required_true = (
+        "pre_guard_ok",
+        "post_guard_ok",
+        "spawn_alive_during_guard",
+        "provider_in_spawn_tree",
+        "same_session",
+    )
+    if any(claim.get(name) is not True for name in required_true):
+        raise ScaleReadinessError("guard_receipt_invalid")
+    for name in ("spawn_pid", "provider_pid", "window_pid", "session_id"):
+        if exact_int(claim.get(name)) is None or claim[name] <= 0:
+            raise ScaleReadinessError("guard_receipt_invalid")
+    if claim.get("class_name") != "CASCADIA_HOSTING_WINDOW_CLASS":
+        raise ScaleReadinessError("guard_receipt_invalid")
+    if not isinstance(claim.get("exe_name"), str) or not SAFE_ID_RE.fullmatch(claim["exe_name"]):
+        raise ScaleReadinessError("guard_receipt_invalid")
+    title_hash = sha256_bytes(f"SC_SCALE {provider} {role} {nonce}".encode())
+    if claim.get("title_sha256") != title_hash:
+        raise ScaleReadinessError("guard_receipt_invalid")
+    tree = claim.get("process_tree_sha256")
+    if not isinstance(tree, str) or not SHA256_RE.fullmatch(tree):
+        raise ScaleReadinessError("guard_receipt_invalid")
+
+
+def validate_rung(
+    value: dict[str, Any], agent_count: int
+) -> tuple[datetime, datetime, set[str], str]:
+    if value.get("schema") == LEGACY_SCHEMA:
+        raise ScaleReadinessError("legacy_unsafe_producer_rejected")
+    if value.get("schema") != RUNG_SCHEMA:
+        raise ScaleReadinessError("rung_schema_invalid")
+    if "real_model_calls_total" in value or "model_call_accounting" in value:
+        raise ScaleReadinessError("unsupported_model_call_claim")
+    require_exact_keys(
+        value,
+        {
+            "schema",
+            "run_id",
+            "verdict",
+            "agent_count",
+            "provider_counts",
+            "logical_simulation",
+            "visible_windows",
+            "started_at_utc",
+            "completed_at_utc",
+            "cli_invocation_accounting",
+            "agents",
+        },
+        "rung_schema_invalid",
+    )
+    if value.get("verdict") != "PASS" or exact_int(value.get("agent_count")) != agent_count:
         raise ScaleReadinessError("rung_not_passed")
-    if exact_int(source.get("agent_count")) != agent_count:
-        raise ScaleReadinessError("agent_count_mismatch")
-    if not exact_provider_counts(source.get("provider_counts"), expected["provider_counts"]):
+    providers = RUNGS[agent_count]
+    if not exact_provider_counts(value.get("provider_counts"), providers):
         raise ScaleReadinessError("provider_counts_mismatch")
-    if source.get("logical_simulation") is not False:
-        raise ScaleReadinessError("logical_simulation_rejected")
-    if source.get("visible_windows") is not True:
-        raise ScaleReadinessError("visible_windows_required")
-    if source.get("uia_readback_attempted") is not True:
-        raise ScaleReadinessError("uia_readback_required")
-    if source.get("gemini_auth_type") != "gemini-api-key":
-        raise ScaleReadinessError("gemini_auth_mode_invalid")
-    if source.get("completion_policy") != "visible_window_plus_exact_ack_from_uia_or_provider_log":
-        raise ScaleReadinessError("completion_policy_invalid")
-    accounting = source.get("model_call_accounting")
+    if value.get("logical_simulation") is not False or value.get("visible_windows") is not True:
+        raise ScaleReadinessError("real_visible_agents_required")
+    accounting = value.get("cli_invocation_accounting")
     if (
         not isinstance(accounting, dict)
-        or exact_int(accounting.get("real_model_calls_total")) != agent_count
-        or type(accounting.get("real_model_calls_per_ack_task")) is not float
-        or accounting.get("real_model_calls_per_ack_task") != 1.0
-        or accounting.get("known_deterministic_task") is not False
+        or set(accounting) != {"cli_invocations_total"}
+        or exact_int(accounting.get("cli_invocations_total")) != agent_count
     ):
-        raise ScaleReadinessError("real_model_call_evidence_invalid")
-    run_id = source.get("run_id")
+        raise ScaleReadinessError("cli_invocation_accounting_invalid")
+    started = parse_utc(value.get("started_at_utc"))
+    completed = parse_utc(value.get("completed_at_utc"))
+    if completed <= started or completed - started > MAX_RUNG_DURATION:
+        raise ScaleReadinessError("rung_time_invalid")
+
+    run_id = value.get("run_id")
     if not isinstance(run_id, str) or not RUN_ID_RE.fullmatch(run_id):
         raise ScaleReadinessError("run_id_invalid")
-
-    counters = source.get("failure_counters")
-    if not isinstance(counters, dict):
-        raise ScaleReadinessError("failure_counters_invalid")
-    zero_counters = (
-        "missed_acks",
-        "visible_window_missing",
-        "uia_readback_failures",
-        "wrong_window_guard_failures",
-        "drift_or_narration_events",
-        "approval_stalls",
-        "wrong_ack_format",
-        "provider_auth_required",
-        "provider_quota_exceeded",
-    )
-    for name in zero_counters:
-        if exact_int(counters.get(name)) != 0:
-            status = "provider_quota_exceeded" if name == "provider_quota_exceeded" else "failure_counter_nonzero"
-            raise ScaleReadinessError(status)
-    provider_failures = counters.get("provider_failures")
-    if not exact_provider_counts(
-        provider_failures,
-        {provider: 0 for provider in expected["provider_counts"]},
-    ):
-        raise ScaleReadinessError("provider_failure_nonzero")
-
-    agents = source.get("agents")
+    agents = value.get("agents")
     if not isinstance(agents, list) or len(agents) != agent_count:
         raise ScaleReadinessError("agent_evidence_count_mismatch")
-    expected_providers = expected["provider_counts"]
-    observed_providers = {provider: 0 for provider in expected_providers}
-    roles: set[str] = set()
-    nonce_hashes: set[str] = set()
-    expected_hashes: set[str] = set()
-    sanitized_agents: list[dict[str, Any]] = []
+    roles = expected_roles(providers)
+    seen_roles: set[str] = set()
+    nonces: set[str] = set()
     for agent in agents:
         if not isinstance(agent, dict):
             raise ScaleReadinessError("agent_evidence_invalid")
-        provider = agent.get("provider")
-        role = agent.get("role")
-        if not isinstance(provider, str) or provider not in observed_providers:
-            raise ScaleReadinessError("agent_provider_invalid")
-        if not isinstance(role, str) or not role or role in roles:
-            raise ScaleReadinessError("agent_role_invalid")
-        if (
-            exact_int(agent.get("hwnd")) is None
-            or int(agent["hwnd"]) <= 0
-            or exact_int(agent.get("pid")) is None
-            or int(agent["pid"]) <= 0
-            or not isinstance(agent.get("title"), str)
-            or not agent["title"]
-        ):
-            raise ScaleReadinessError("visible_agent_identity_invalid")
-        roles.add(role)
-        observed_providers[provider] += 1
-        log_ack = agent.get("log_exact_ack") is True
-        uia_ack = agent.get("uia_exact_ack") is True
-        if not (log_ack or uia_ack):
-            raise ScaleReadinessError("exact_ack_missing")
-        if agent.get("status") != "pass" or agent.get("diagnosis") != "":
-            raise ScaleReadinessError("agent_not_passed")
-        nonce_hash = agent.get("nonce_hash")
-        expected_hash = agent.get("expected_hash")
-        if not isinstance(nonce_hash, str) or not SHA256_RE.fullmatch(nonce_hash.lower()):
-            raise ScaleReadinessError("agent_hash_invalid")
-        if not isinstance(expected_hash, str) or not SHA256_RE.fullmatch(expected_hash.lower()):
-            raise ScaleReadinessError("agent_hash_invalid")
-        nonce_hash = nonce_hash.lower()
-        expected_hash = expected_hash.lower()
-        if nonce_hash in nonce_hashes or expected_hash in expected_hashes:
-            raise ScaleReadinessError("agent_hash_reused")
-        nonce_hashes.add(nonce_hash)
-        expected_hashes.add(expected_hash)
-        expected_ack_source = (
-            "uia+log" if uia_ack and log_ack else "uia" if uia_ack else "log"
-        )
-        if agent.get("ack_source") != expected_ack_source:
-            raise ScaleReadinessError("ack_source_invalid")
-        sanitized_agents.append(
+        require_exact_keys(
+            agent,
             {
-                "provider": provider,
-                "role": role,
-                "nonce_hash": nonce_hash,
-                "expected_hash": expected_hash,
-                "log_exact_ack": log_ack,
-                "uia_exact_ack": uia_ack,
-                "ack_source": expected_ack_source,
-                "status": "pass",
-                "diagnosis": "",
-            }
+                "provider",
+                "role",
+                "nonce",
+                "nonce_sha256",
+                "expected_sha256",
+                "exact_ack",
+                "status",
+                "provider_outcome",
+                "invocation",
+                "guard",
+            },
+            "agent_evidence_invalid",
         )
-    if observed_providers != expected_providers:
-        raise ScaleReadinessError("agent_provider_counts_mismatch")
-
-    return {
-        "schema": RUNG_SCHEMA,
-        "run_id": run_id,
-        "verdict": "PASS",
-        "agent_count": agent_count,
-        "provider_counts": expected_providers,
-        "gemini_auth_type": "gemini-api-key",
-        "logical_simulation": False,
-        "visible_windows": True,
-        "uia_readback_attempted": True,
-        "completion_policy": source["completion_policy"],
-        "model_call_accounting": {
-            "real_model_calls_total": agent_count,
-            "real_model_calls_per_ack_task": 1.0,
-            "known_deterministic_task": False,
-        },
-        "failure_counters": {name: 0 for name in zero_counters},
-        "agents": sanitized_agents,
-    }
-
-
-def validate_rung_evidence(evidence: dict[str, Any], agent_count: int) -> str:
-    # The sanitized artifact is intentionally accepted through the same strict
-    # proposition checks as raw runner output.
-    if evidence.get("schema") != RUNG_SCHEMA:
-        raise ScaleReadinessError("rung_schema_invalid")
-    counters = evidence.get("failure_counters")
-    if not isinstance(counters, dict):
-        raise ScaleReadinessError("failure_counters_invalid")
-    agents = evidence.get("agents")
-    if not isinstance(agents, list) or any(not isinstance(agent, dict) for agent in agents):
-        raise ScaleReadinessError("agent_evidence_invalid")
-    source = dict(evidence)
-    source["schema"] = SOURCE_SCHEMA
-    source["agents"] = [
-        {
-            **agent,
-            # The reduced artifact deliberately omits live machine identifiers.
-            # Positive sentinels allow reuse of proposition validation without
-            # representing them as retained evidence.
-            "hwnd": 1,
-            "pid": 1,
-            "title": "redacted-after-validation",
-        }
-        for agent in agents
-    ]
-    source["failure_counters"] = {
-        **counters,
-        "provider_failures": {
-            provider: 0 for provider in RUNGS[agent_count]["provider_counts"]
-        },
-    }
-    validate_source_result(source, agent_count)
-    return str(evidence["run_id"])
+        provider, role, nonce = agent.get("provider"), agent.get("role"), agent.get("nonce")
+        if (
+            not isinstance(provider, str)
+            or not isinstance(role, str)
+            or provider not in providers
+            or role not in roles
+            or role in seen_roles
+        ):
+            raise ScaleReadinessError("agent_role_invalid")
+        if not isinstance(nonce, str) or not NONCE_RE.fullmatch(nonce) or nonce in nonces:
+            raise ScaleReadinessError("agent_nonce_invalid")
+        seen_roles.add(role)
+        nonces.add(nonce)
+        expected = expected_ack(provider, role, nonce)
+        if agent.get("nonce_sha256") != sha256_bytes(nonce.encode()):
+            raise ScaleReadinessError("agent_hash_invalid")
+        if agent.get("expected_sha256") != sha256_bytes(expected.encode()):
+            raise ScaleReadinessError("agent_hash_invalid")
+        if agent.get("exact_ack") is not True or agent.get("status") != "pass":
+            raise ScaleReadinessError("exact_ack_missing")
+        outcome = agent.get("provider_outcome")
+        if not isinstance(outcome, dict) or outcome != {
+            "auth_failed": False,
+            "quota_exceeded": False,
+        }:
+            raise ScaleReadinessError("provider_outcome_invalid")
+        validate_invocation(agent.get("invocation"), provider)
+        validate_guard(agent.get("guard"), provider=provider, role=role, nonce=nonce)
+    if seen_roles != roles:
+        raise ScaleReadinessError("agent_role_invalid")
+    return started, completed, nonces, run_id
 
 
 def validate_bundle(
     bundle: Path,
     *,
-    core_repo: Path,
+    expected_ecosystem_sha: str,
+    expected_producer_run_id: int,
+    expected_producer_run_attempt: int = 1,
+    expected_producer_actor: str = "restricted-producer",
     now: datetime | None = None,
     max_evidence_age_hours: float = DEFAULT_MAX_EVIDENCE_AGE_HOURS,
 ) -> dict[str, Any]:
+    if not SHA1_RE.fullmatch(expected_ecosystem_sha):
+        raise ScaleReadinessError("ecosystem_sha_invalid")
+    if expected_producer_run_id <= 0:
+        raise ScaleReadinessError("producer_run_id_invalid")
+    if expected_producer_run_attempt <= 0:
+        raise ScaleReadinessError("producer_run_attempt_invalid")
+    if not SAFE_ID_RE.fullmatch(expected_producer_actor):
+        raise ScaleReadinessError("producer_actor_invalid")
     if (
         not math.isfinite(max_evidence_age_hours)
         or max_evidence_age_hours <= 0
@@ -395,152 +599,103 @@ def validate_bundle(
     manifest_path = bundle / "manifest.json"
     if not manifest_path.is_file() or manifest_path.is_symlink():
         raise ScaleReadinessError("manifest_missing")
+    expected_files = {"manifest.json", *(f"rung-{count}.json" for count in RUNGS)}
     try:
-        actual_files = {item.name for item in bundle.iterdir() if item.is_file()}
-        actual_entries = {item.name for item in bundle.iterdir()}
+        entries = {item.name for item in bundle.iterdir()}
     except OSError as exc:
         raise ScaleReadinessError("evidence_io_failed") from exc
-    expected_files = {"manifest.json", *(f"rung-{count}.json" for count in RUNGS)}
-    if expected_files - actual_entries:
-        raise ScaleReadinessError("rung_file_missing")
-    if actual_files != expected_files or actual_entries != expected_files:
+    if entries != expected_files:
         raise ScaleReadinessError("bundle_contents_invalid")
+
     manifest = load_json(manifest_path)
     if manifest.get("schema") != SCHEMA:
         raise ScaleReadinessError("manifest_schema_invalid")
-
-    evaluated_at = now or datetime.now(timezone.utc)
-    if evaluated_at.tzinfo is None:
-        raise ScaleReadinessError("evaluation_time_invalid")
-    evaluated_at = evaluated_at.astimezone(timezone.utc)
+    require_exact_keys(
+        manifest,
+        {
+            "schema",
+            "generated_at",
+            "producer_context",
+            "code_identity",
+            "provider_pins",
+            "rungs",
+        },
+        "manifest_schema_invalid",
+    )
+    evaluated_at = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     generated_at = parse_utc(manifest.get("generated_at"))
     if generated_at > evaluated_at + MAX_FUTURE_SKEW:
         raise ScaleReadinessError("evidence_from_future")
     if evaluated_at - generated_at > timedelta(hours=max_evidence_age_hours):
         raise ScaleReadinessError("evidence_stale")
 
-    identity = current_core_identity(core_repo)
-    if manifest.get("core") != identity:
+    workflow_context = validate_workflow_context(
+        manifest.get("producer_context"),
+        expected_ecosystem_sha=expected_ecosystem_sha.lower(),
+        expected_producer_run_id=expected_producer_run_id,
+        expected_producer_run_attempt=expected_producer_run_attempt,
+        expected_producer_actor=expected_producer_actor,
+    )
+    core_head = remote_core_head()
+    if workflow_context.get("core_head_sha") != core_head:
         raise ScaleReadinessError("evidence_wrong_core_head")
-    rungs = manifest.get("rungs")
-    if not isinstance(rungs, list) or len(rungs) != len(RUNGS):
-        raise ScaleReadinessError("rung_manifest_invalid")
+    validate_code_identity(manifest.get("code_identity"), core_head)
+    validate_provider_pins(manifest.get("provider_pins"))
 
-    observed: set[int] = set()
+    rows = manifest.get("rungs")
+    if not isinstance(rows, list) or len(rows) != len(RUNGS):
+        raise ScaleReadinessError("rung_manifest_invalid")
+    intervals: list[tuple[int, datetime, datetime]] = []
+    all_nonces: set[str] = set()
     run_ids: set[str] = set()
-    for row in rungs:
+    observed: set[int] = set()
+    for row in rows:
         if not isinstance(row, dict):
             raise ScaleReadinessError("rung_manifest_invalid")
-        agent_count = exact_int(row.get("agent_count"))
-        if agent_count not in RUNGS or agent_count in observed:
+        require_exact_keys(
+            row,
+            {"agent_count", "file", "sha256", "size_bytes"},
+            "rung_manifest_invalid",
+        )
+        count = exact_int(row.get("agent_count"))
+        if count not in RUNGS or count in observed:
             raise ScaleReadinessError("rung_manifest_invalid")
-        observed.add(agent_count)
-        expected_name = f"rung-{agent_count}.json"
-        if row.get("file") != expected_name:
+        observed.add(count)
+        path = bundle / f"rung-{count}.json"
+        if row.get("file") != path.name or not path.is_file() or path.is_symlink():
             raise ScaleReadinessError("rung_file_invalid")
-        path = bundle / expected_name
-        if not path.is_file() or path.is_symlink():
-            raise ScaleReadinessError("rung_file_missing")
-        digest = sha256_file(path)
-        size = path.stat().st_size
-        if row.get("sha256") != digest or exact_int(row.get("size_bytes")) != size:
+        if row.get("sha256") != sha256_file(path) or exact_int(row.get("size_bytes")) != path.stat().st_size:
             raise ScaleReadinessError("rung_artifact_mismatch")
-        if not exact_provider_counts(
-            row.get("provider_counts"), RUNGS[agent_count]["provider_counts"]
-        ):
-            raise ScaleReadinessError("rung_manifest_invalid")
-        run_id = validate_rung_evidence(load_json(path), agent_count)
+        started, completed, nonces, run_id = validate_rung(load_json(path), count)
+        if nonces & all_nonces:
+            raise ScaleReadinessError("cross_rung_nonce_reuse")
         if run_id in run_ids:
-            raise ScaleReadinessError("run_id_reused")
+            raise ScaleReadinessError("cross_rung_run_id_reuse")
+        all_nonces.update(nonces)
         run_ids.add(run_id)
+        intervals.append((count, started, completed))
     if observed != set(RUNGS):
         raise ScaleReadinessError("rung_manifest_invalid")
-
+    intervals.sort()
+    for index, (count, started, completed) in enumerate(intervals):
+        if completed > generated_at or evaluated_at - completed > timedelta(hours=max_evidence_age_hours):
+            raise ScaleReadinessError("rung_time_invalid")
+        if index and started < intervals[index - 1][2]:
+            raise ScaleReadinessError("rung_order_invalid")
+        if count not in RUNGS:
+            raise ScaleReadinessError("rung_manifest_invalid")
     return {
         "schema": SCHEMA,
         "ok": True,
         "status": "ready",
         "evaluated_at": evaluated_at.isoformat(),
         "generated_at": generated_at.isoformat(),
-        "core": identity,
+        "core_head_sha": core_head,
+        "ecosystem_contract_sha": expected_ecosystem_sha.lower(),
+        "producer_run_id": expected_producer_run_id,
         "rungs": sorted(observed),
+        "attestation_boundary": "GitHub artifact attestation verified by workflow before parsing",
     }
-
-
-def collect_bundle(
-    core_repo: Path,
-    output_dir: Path,
-    *,
-    max_evidence_age_hours: float = DEFAULT_MAX_EVIDENCE_AGE_HOURS,
-) -> dict[str, Any]:
-    identity = current_core_identity(core_repo)
-    runner = core_repo / "experiments" / "fabric_v2" / "real_agent_baseline.py"
-    if not runner.is_file():
-        raise ScaleReadinessError("scale_runner_missing")
-    if output_dir.exists():
-        raise ScaleReadinessError("output_already_exists")
-    output_dir.parent.mkdir(parents=True, exist_ok=True)
-
-    with tempfile.TemporaryDirectory(
-        prefix="selfconnect-scale-", dir=output_dir.parent
-    ) as temp_name:
-        temp = Path(temp_name)
-        staged = temp / "bundle"
-        staged.mkdir()
-        manifest_rungs: list[dict[str, Any]] = []
-        for agent_count, spec in RUNGS.items():
-            raw_dir = temp / f"raw-{agent_count}"
-            raw_dir.mkdir()
-            command = [
-                sys.executable,
-                str(runner),
-                "--agents",
-                str(agent_count),
-                "--providers",
-                spec["providers"],
-                "--timeout",
-                str(spec["timeout"]),
-                "--close-windows",
-                "--gemini-auth-type",
-                "gemini-api-key",
-                "--results-dir",
-                str(raw_dir),
-            ]
-            result = run_command(
-                command,
-                cwd=core_repo,
-                timeout=int(spec["timeout"]) + 180,
-            )
-            files = list(raw_dir.glob("real_agent_baseline_SC_REAL5_*.json"))
-            if result.returncode != 0 or len(files) != 1:
-                raise ScaleReadinessError(f"rung_{agent_count}_execution_failed")
-            sanitized = validate_source_result(load_json(files[0]), agent_count)
-            evidence_path = staged / f"rung-{agent_count}.json"
-            write_json(evidence_path, sanitized)
-            manifest_rungs.append(
-                {
-                    "agent_count": agent_count,
-                    "provider_counts": spec["provider_counts"],
-                    "file": evidence_path.name,
-                    "sha256": sha256_file(evidence_path),
-                    "size_bytes": evidence_path.stat().st_size,
-                }
-            )
-        if current_core_identity(core_repo) != identity:
-            raise ScaleReadinessError("core_repo_changed_during_collection")
-        manifest = {
-            "schema": SCHEMA,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "core": identity,
-            "rungs": manifest_rungs,
-        }
-        write_json(staged / "manifest.json", manifest)
-        staged.replace(output_dir)
-    return validate_bundle(
-        output_dir,
-        core_repo=core_repo,
-        max_evidence_age_hours=max_evidence_age_hours,
-    )
 
 
 def write_report(path: Path | None, report: dict[str, Any]) -> None:
@@ -551,30 +706,38 @@ def write_report(path: Path | None, report: dict[str, Any]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("collect", "verify"))
-    parser.add_argument("--core-repo", type=Path, required=True)
-    parser.add_argument("--bundle", type=Path, required=True)
-    parser.add_argument("--report-file", type=Path)
-    parser.add_argument(
-        "--max-evidence-age-hours",
-        type=float,
-        default=DEFAULT_MAX_EVIDENCE_AGE_HOURS,
+    commands = parser.add_subparsers(dest="command", required=True)
+    verify = commands.add_parser("verify")
+    verify.add_argument("--bundle", type=Path, required=True)
+    verify.add_argument("--expected-ecosystem-sha", required=True)
+    verify.add_argument("--expected-producer-run-id", type=int, required=True)
+    verify.add_argument("--expected-producer-run-attempt", type=int, required=True)
+    verify.add_argument("--expected-producer-actor", required=True)
+    verify.add_argument("--report-file", type=Path)
+    verify.add_argument(
+        "--max-evidence-age-hours", type=float, default=DEFAULT_MAX_EVIDENCE_AGE_HOURS
     )
+    extract = commands.add_parser("extract")
+    extract.add_argument("--archive", type=Path, required=True)
+    extract.add_argument("--destination", type=Path, required=True)
     args = parser.parse_args()
-
+    if args.command == "extract":
+        try:
+            extract_archive(args.archive.resolve(), args.destination.resolve())
+        except ScaleReadinessError as exc:
+            print(json.dumps({"schema": SCHEMA, "ok": False, "status": exc.status}, indent=2))
+            return 2
+        print(json.dumps({"schema": SCHEMA, "ok": True, "status": "extracted"}, indent=2))
+        return 0
     try:
-        if args.mode == "collect":
-            report = collect_bundle(
-                args.core_repo.resolve(),
-                args.bundle.resolve(),
-                max_evidence_age_hours=args.max_evidence_age_hours,
-            )
-        else:
-            report = validate_bundle(
-                args.bundle.resolve(),
-                core_repo=args.core_repo.resolve(),
-                max_evidence_age_hours=args.max_evidence_age_hours,
-            )
+        report = validate_bundle(
+            args.bundle.resolve(),
+            expected_ecosystem_sha=args.expected_ecosystem_sha,
+            expected_producer_run_id=args.expected_producer_run_id,
+            expected_producer_run_attempt=args.expected_producer_run_attempt,
+            expected_producer_actor=args.expected_producer_actor,
+            max_evidence_age_hours=args.max_evidence_age_hours,
+        )
     except ScaleReadinessError as exc:
         report = {"schema": SCHEMA, "ok": False, "status": exc.status}
         write_report(args.report_file, report)

@@ -174,22 +174,23 @@
   issue #5. The previous live-readiness checker covered repository state,
   single-provider access, TPM, and signed MSI evidence but did not execute or
   validate the documented 10/15/20-agent ladder.
-- `scripts/scale_readiness.py collect` now runs the three real visible-agent
-  rungs from a clean, current canonical `selfconnect/master` checkout. It
-  requires exact per-agent ACK evidence, exact provider mixes, zero provider
-  quota/auth failures, and non-simulated visible-window results.
-- Evidence is reduced before upload to exclude raw logs, local paths, HWNDs,
-  PIDs, and titles. A SHA-256 manifest binds the three rung files to the live
-  core head and a maximum 168-hour evidence age.
-- Added adversarial tests for stale and wrong-head evidence, missing or
-  modified artifacts, quota failure, forged agent/provider counts, missing
-  exact ACKs, duplicate JSON keys, and duplicate rungs. Hosted CI validates
-  this contract; only the protected self-hosted workflow can create live
-  scale evidence.
-- Pre-independent-review hardening rejects Boolean-as-integer provider counts,
-  malformed provider types, reused nonce/expected hashes, ACK-source
-  contradictions, duplicate run IDs, oversized JSON, unexpected bundle files,
-  future timestamps, wrong rung schemas, and malformed counter objects. The
-  final local checkpoint is 75/75 repository unit tests and 26/26 focused
-  scale-evidence tests; Ruff on changed files, Python compilation, npm
-  readiness scripts, and diff checks pass.
+- Independent review rejected the original ecosystem-side v3 collector because
+  it invoked provider CLIs with unsafe automation modes, relied on self-hashes,
+  and reduced synthetic window identifiers without a full target-guard receipt.
+  That draft implementation is superseded and cannot produce accepted evidence.
+- The ecosystem workflow is now a consumer only. It downloads a successful
+  core `Restricted Real-Agent Scale Producer` artifact, verifies GitHub's
+  artifact attestation against the exact signer workflow, source ref, source
+  commit, and run identity, then performs bounded ZIP extraction before parsing.
+  No provider credential or provider process exists in the ecosystem workflow.
+- The v2 contract rejects legacy v3, extra JSON fields, stale or non-current
+  evidence, unsafe or conflicting CLI policies, unpinned CLI versions/help,
+  missing Gemini deny-all policy evidence, forged provider mixes/roles/hashes,
+  repeated nonces/run IDs, invalid full guard receipts, overlapping rungs, and
+  unsupported model-call claims. It records CLI invocation accounting only;
+  API-key mode is a bounded requested-mode assertion, not a provider receipt.
+- The consumer report is itself attested and retains the original attested ZIP.
+  This is contract implementation, not live proof: no restricted producer run
+  has executed and issue #5 remains open. The focused adversarial suite is
+  30/30 at this checkpoint; final repository/hosted counts are recorded after
+  the coordinated core producer contract lands.

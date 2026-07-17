@@ -11,16 +11,17 @@ not mistaken for oversight:
   root, an independently obtained signer fingerprint, one full run, and
   retained non-secret output. Until then, no green live-readiness result
   exists.
-- **Real-agent 10/15/20 scale activation**: the fail-closed collector,
-  validator, hosted contract tests, and manual self-hosted workflow exist, but
-  no protected runner or persistent Gemini provider capacity is provisioned.
-  Issue #5 remains open until the workflow executes all three real rungs,
-  uploads a current-head-bound evidence bundle, and passes without quota or
-  authentication failures. Unit fixtures and issue state cannot close it.
-  The workflow must not be made a hosted required check: hosted runners cannot
-  access the protected Windows UI session or establish real visible-agent
-  execution, and running the paid scale ladder on every pull request would
-  conflate contract testing with live evidence.
+- **Restricted real-agent 10/15/20 producer activation**: this repository now
+  contains only the fail-closed v2 evidence consumer. The canonical core
+  producer, disposable runner group, protected environment, provider capacity,
+  and successful attested run are prerequisites outside this change. Issue #5
+  remains open until the core workflow executes all three exact provider rungs,
+  emits full guard receipts under the pinned CLI/tool policies, the ecosystem
+  consumer accepts the current-head attestation, and retained non-secret
+  evidence survives independent review. Legacy v3 output, unit fixtures,
+  workflow existence, and issue state cannot close it. The paid ladder remains
+  manually dispatched; hosted pull-request CI cannot access a protected Windows
+  UI session or establish visible-agent execution.
 - **Current signed MSI evidence**: the available June 21, 2026 workflow run is
   stale relative to current enterprise `master`, and its evidence records
   `signed: false`. Secret-name presence cannot close this. Issue #4 remains the

@@ -96,16 +96,29 @@ runs with exact provider mixes. Listing that issue in documentation did not
 make it executable, and checking whether the issue was open or closed would
 let repository metadata substitute for runtime evidence.
 
-The scale gate is therefore separate. A protected Windows runner executes the
-real 10/15/20 ladder and a strict collector validates the runner's existing v3
-result schema. Evidence is current-head bound, content hashed, time bounded,
-and reduced before upload. Hosted CI tests the validator contract but cannot
-claim the live agents ran. This separation keeps ordinary pull requests fast
-without allowing a green base-readiness check to imply scale proof.
+The scale gate is therefore separate and split across repositories. A
+restricted, disposable Windows producer belongs in canonical `selfconnect`,
+where the Win32 guard and provider-launch implementation can be reviewed with
+the code it exercises. The ecosystem workflow does not launch providers. It
+accepts only an attested v2 archive signed by the exact core producer workflow
+on current `master`, then independently validates and attests the reduced
+contract. Hosted CI tests the consumer but cannot claim the live agents ran.
+This separation prevents ecosystem secrets or synthetic fixtures from being
+mistaken for execution evidence.
 
-The evidence bundle is a closed, reduced projection rather than a copy of raw
-provider output. That preserves the exact proposition needed for review while
-excluding paths, process/window identifiers, and provider logs that could
-contain unrelated machine context. Per-file hashes detect changes after
-collection; exact source/result schemas and cross-rung uniqueness checks stop
-shape-compatible substituted results from passing.
+The evidence bundle is a closed, reduced projection rather than raw provider
+output. GitHub artifact attestation provides the external integrity and signer
+boundary; in-bundle hashes alone are not treated as authenticity. Each agent
+retains a cryptorandom nonce, recomputed expected-ACK hash, version-pinned CLI
+policy, and a digest over the full guarded spawn/process-tree/executable/window
+claim. Exact schemas and cross-rung uniqueness checks prevent substituted
+shape-compatible evidence and unsupported claims from passing.
+
+Provider safety claims stay narrow. Installed CLI help and current official
+documentation establish the requested flags, but a requested mode is not a
+provider receipt or proof that a model made exactly one API call. Gemini's
+noninteractive Plan mode can transition toward YOLO; the contract therefore
+also pins a deny-all admin policy and sandbox request, while still describing
+the result only as requested restricted controls plus an observed exact ACK.
+The dedicated disposable runner and isolated provider environment remain
+mandatory defense-in-depth boundaries.

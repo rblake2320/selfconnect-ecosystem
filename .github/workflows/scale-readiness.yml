@@ -1,23 +1,36 @@
-name: Real-Agent Scale Readiness Evidence
+name: Verify Restricted Scale Evidence
 
 on:
   workflow_dispatch:
+    inputs:
+      producer_run_id:
+        description: Successful Restricted Real-Agent Scale Producer run ID
+        required: true
+        type: number
+      max_evidence_age_hours:
+        description: Evidence age in hours; may tighten but never exceed 168
+        required: true
+        default: 168
+        type: number
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: scale-readiness-${{ github.repository }}
+  cancel-in-progress: false
 
 jobs:
   scale-readiness:
     name: scale-readiness
-    runs-on: [self-hosted, Windows, selfconnect-readiness]
-    timeout-minutes: 75
+    runs-on: windows-latest
+    timeout-minutes: 20
     environment: live-readiness
-    env:
-      PKA_ROOT: ${{ vars.READINESS_PKA_ROOT }}
-      GEMINI_API_KEY: ${{ secrets.READINESS_GEMINI_API_KEY }}
 
     steps:
-      - name: Check out scale evidence implementation
+      - name: Check out evidence consumer
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
@@ -27,26 +40,77 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Require canonical protected execution context
+      - name: Download and verify restricted producer attestation
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.READINESS_GH_TOKEN }}
+          PRODUCER_RUN_ID: ${{ inputs.producer_run_id }}
         run: |
           if ($env:GITHUB_REF -ne 'refs/heads/main') {
-            throw "Scale readiness evidence must run from refs/heads/main"
+            throw "Scale evidence verification must run from refs/heads/main"
           }
-          if ([string]::IsNullOrWhiteSpace($env:PKA_ROOT)) {
-            throw "Repository variable READINESS_PKA_ROOT is required"
+          if ($env:PRODUCER_RUN_ID -notmatch '^[1-9][0-9]*$') {
+            throw "producer_run_id must be a positive integer"
           }
-          if (-not [IO.Path]::IsPathFullyQualified($env:PKA_ROOT)) {
-            throw "READINESS_PKA_ROOT must be an absolute path"
+          if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
+            throw "Protected READINESS_GH_TOKEN is required"
           }
 
-      - name: Run and validate the real 10/15/20 scale ladder
+          $runJson = gh api `
+            "repos/rblake2320/selfconnect/actions/runs/$env:PRODUCER_RUN_ID"
+          if ($LASTEXITCODE -ne 0) { throw "producer run lookup failed" }
+          $run = $runJson | ConvertFrom-Json
+          if ($run.event -ne 'workflow_dispatch' -or $run.conclusion -ne 'success' -or `
+              $run.head_branch -ne 'master' -or $run.head_sha -notmatch '^[0-9a-f]{40}$' -or `
+              $run.name -ne 'Restricted Real-Agent Scale Producer' -or `
+              $run.run_attempt -notmatch '^[1-9][0-9]*$' -or `
+              $run.actor.login -notmatch '^[A-Za-z0-9_.-]{1,128}$') {
+            throw "producer run identity is not acceptable"
+          }
+          "PRODUCER_RUN_ATTEMPT=$($run.run_attempt)" >> $env:GITHUB_ENV
+          "PRODUCER_ACTOR=$($run.actor.login)" >> $env:GITHUB_ENV
+
+          $source = Join-Path $env:RUNNER_TEMP 'restricted-producer'
+          New-Item -ItemType Directory -Path $source | Out-Null
+          gh run download $env:PRODUCER_RUN_ID `
+            --repo rblake2320/selfconnect `
+            --name restricted-scale-evidence `
+            --dir $source
+          if ($LASTEXITCODE -ne 0) { throw "producer artifact download failed" }
+
+          $archive = Join-Path $source 'scale-evidence.zip'
+          if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) {
+            throw "attested producer archive is missing"
+          }
+          gh attestation verify $archive `
+            --repo rblake2320/selfconnect `
+            --signer-workflow github.com/rblake2320/selfconnect/.github/workflows/restricted-scale-producer.yml `
+            --source-ref refs/heads/master `
+            --source-digest $run.head_sha
+          if ($LASTEXITCODE -ne 0) { throw "producer artifact attestation failed" }
+
+          $bundle = Join-Path $env:RUNNER_TEMP 'scale-evidence-bundle'
+          python scripts\scale_readiness.py extract `
+            --archive $archive `
+            --destination $bundle
+          if ($LASTEXITCODE -ne 0) { throw "bounded evidence extraction failed" }
+
+      - name: Validate restricted v2 evidence contract
         shell: pwsh
         run: |
-          python scripts\scale_readiness.py collect `
-            --core-repo (Join-Path $env:PKA_ROOT 'selfconnect') `
-            --bundle (Join-Path $env:RUNNER_TEMP 'scale-readiness-evidence') `
+          python scripts\scale_readiness.py verify `
+            --bundle (Join-Path $env:RUNNER_TEMP 'scale-evidence-bundle') `
+            --expected-ecosystem-sha $env:GITHUB_SHA `
+            --expected-producer-run-id '${{ inputs.producer_run_id }}' `
+            --expected-producer-run-attempt $env:PRODUCER_RUN_ATTEMPT `
+            --expected-producer-actor $env:PRODUCER_ACTOR `
+            --max-evidence-age-hours '${{ inputs.max_evidence_age_hours }}' `
             --report-file (Join-Path $env:RUNNER_TEMP 'scale-readiness-report.json')
+
+      - name: Attest consumer verification report
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: ${{ runner.temp }}/scale-readiness-report.json
 
       - name: Add bounded result to workflow summary
         if: always()
@@ -54,19 +118,27 @@ jobs:
         run: |
           $report = Join-Path $env:RUNNER_TEMP 'scale-readiness-report.json'
           if (Test-Path -LiteralPath $report) {
-            "## Real-agent scale readiness" >> $env:GITHUB_STEP_SUMMARY
+            "## Restricted real-agent scale evidence" >> $env:GITHUB_STEP_SUMMARY
             '```json' >> $env:GITHUB_STEP_SUMMARY
             Get-Content -LiteralPath $report >> $env:GITHUB_STEP_SUMMARY
             '```' >> $env:GITHUB_STEP_SUMMARY
           }
 
-      - name: Preserve verified non-secret scale evidence
-        if: success()
+      - name: Preserve attested source and verification report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: scale-readiness-evidence-${{ github.run_id }}
+          name: verified-scale-readiness-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/scale-readiness-evidence
+            ${{ runner.temp }}/restricted-producer/scale-evidence.zip
             ${{ runner.temp }}/scale-readiness-report.json
           if-no-files-found: error
           retention-days: 30
+
+      - name: Clean temporary evidence
+        if: always()
+        shell: pwsh
+        run: |
+          Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'restricted-producer') `
+            -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'scale-evidence-bundle') `
+            -Recurse -Force -ErrorAction SilentlyContinue
