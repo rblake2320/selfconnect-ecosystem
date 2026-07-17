@@ -1,5 +1,24 @@
 # Change Log
 
+## 2026-07-17
+
+- Added an executable reviewed-squash gate after BPC PR #19 and TSK PR #11
+  retained superseded intermediate statements in GitHub-generated squash
+  messages. PR commits now reject evidence-like results; the merge helper
+  supplies an explicit final subject/body, binds it to the exact head and a
+  retained evidence digest, and never requests admin bypass.
+- Added first-parent detection after pinned baseline
+  `d25b8a1372a15e2332c5b0551c28332dda5f4820`. An unmanaged owner merge is
+  detectable and fails the gate; it is not claimed impossible.
+- Pinned that baseline as a workflow literal. Reading it from the candidate
+  tree would let an unmanaged commit advance the baseline to itself and evade
+  the scan.
+- Independent review found three additional weaknesses: final messages did not
+  receive the intermediate-evidence scan, empty arbitrary evidence could be
+  hashed, and verdict patterns overmatched ordinary prose. The final path now
+  uses narrower result-context patterns, scans final text too, requires strict
+  head-bound evidence JSON, and verifies its GitHub Actions run live.
+
 ## 2026-07-16 (fail-closed readiness and security boundary)
 
 - Reproduced hosted run `29509501237` succeeding while its own report said
