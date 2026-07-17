@@ -44,9 +44,10 @@ attestations against this repository.
 
 `selfconnect-py-v1.1.1` stopped before building or publishing because the
 private-repository ancestry check could not authenticate after checkout had
-discarded its read-only job credential. No `1.1.1` distribution reached PyPI.
-The workflow was corrected on protected `main`; the next release is `1.1.2`
-rather than moving or reusing the published Git tag.
+discarded its read-only job credential. `selfconnect-py-v1.1.2` stopped at the
+same gate because GitHub created a lightweight tag while policy requires an
+annotated tag object. Neither version reached PyPI. The next release is `1.1.3`
+rather than moving or reusing either published Git tag.
 
 ## Current State
 
