@@ -40,6 +40,14 @@ The final job compares PyPI file hashes with the artifacts built earlier in the
 workflow and cryptographically verifies the PyPI Trusted Publisher
 attestations against this repository.
 
+## Failed Release Attempts
+
+`selfconnect-py-v1.1.1` stopped before building or publishing because the
+private-repository ancestry check could not authenticate after checkout had
+discarded its read-only job credential. No `1.1.1` distribution reached PyPI.
+The workflow was corrected on protected `main`; the next release is `1.1.2`
+rather than moving or reusing the published Git tag.
+
 ## Current Block
 
 Until the owner registers the matching PyPI Trusted Publisher and then sets the
