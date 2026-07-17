@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import subprocess
 import tempfile
 import unittest
 import zipfile
@@ -373,6 +375,50 @@ class ScaleReadinessTests(unittest.TestCase):
                 self.skipTest(f"file symlink creation unavailable: {exc}")
             self.assertTrue((root / "vector.json").is_file())
             self.assertTrue((root / "vector.json").is_symlink())
+            self.assert_status(
+                "contract_fixture_invalid",
+                lambda: scale.validate_contract_fixture(root),
+            )
+
+    @unittest.skipUnless(os.name == "nt", "Windows junction semantics required")
+    def test_external_fixture_junction_root_fails_before_iteration(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            external = parent / "external-bundle"
+            external.mkdir()
+            for source in PRODUCER_FIXTURE_ROOT.iterdir():
+                (external / source.name).write_bytes(source.read_bytes())
+            root = parent / "bundle-junction"
+            created = subprocess.run(
+                ["cmd.exe", "/d", "/c", "mklink", "/J", str(root), str(external)],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+            if created.returncode != 0:
+                self.skipTest("directory junction creation unavailable")
+            self.assertTrue(root.is_junction())
+            self.assert_status(
+                "contract_fixture_invalid",
+                lambda: scale.validate_contract_fixture(root),
+            )
+
+    def test_external_identical_vector_hardlink_fails_before_json_parse(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            parent = Path(temp)
+            root = parent / "bundle"
+            root.mkdir()
+            for source in PRODUCER_FIXTURE_ROOT.iterdir():
+                if source.name != "vector.json":
+                    (root / source.name).write_bytes(source.read_bytes())
+            external = parent / "external-vector.json"
+            external.write_bytes((PRODUCER_FIXTURE_ROOT / "vector.json").read_bytes())
+            try:
+                os.link(external, root / "vector.json")
+            except OSError as exc:
+                self.skipTest(f"file hardlink creation unavailable: {exc}")
+            self.assertGreater((root / "vector.json").stat().st_nlink, 1)
             self.assert_status(
                 "contract_fixture_invalid",
                 lambda: scale.validate_contract_fixture(root),

@@ -10,6 +10,7 @@ import math
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import zipfile
@@ -145,6 +146,7 @@ FORBIDDEN_MODE_TOKENS = {
     "yolo",
     "--skip-trust",
 }
+FILE_ATTRIBUTE_REPARSE_POINT = 0x400
 
 
 def provider_policy_projection(provider: str) -> dict[str, Any]:
@@ -241,6 +243,32 @@ def write_json(path: Path, value: dict[str, Any]) -> None:
     )
 
 
+def closed_path_metadata(path: Path, *, directory: bool) -> os.stat_result:
+    """Return no-follow metadata only for a closed, unaliased fixture path."""
+    try:
+        metadata = path.stat(follow_symlinks=False)
+        is_junction = getattr(path, "is_junction", lambda: False)()
+    except (OSError, UnicodeError) as exc:
+        raise ScaleReadinessError("contract_fixture_invalid") from exc
+    attributes = int(getattr(metadata, "st_file_attributes", 0))
+    if (
+        stat.S_ISLNK(metadata.st_mode)
+        or is_junction
+        or attributes & FILE_ATTRIBUTE_REPARSE_POINT
+    ):
+        raise ScaleReadinessError("contract_fixture_invalid")
+    if directory:
+        if not stat.S_ISDIR(metadata.st_mode):
+            raise ScaleReadinessError("contract_fixture_invalid")
+    elif (
+        not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_nlink != 1
+        or metadata.st_size > MAX_JSON_BYTES
+    ):
+        raise ScaleReadinessError("contract_fixture_invalid")
+    return metadata
+
+
 def validate_contract_fixture(root: Path) -> dict[str, Any]:
     """Validate producer-generated compatibility bytes before contract tests use them."""
     expected_bundle_files = {
@@ -249,19 +277,12 @@ def validate_contract_fixture(root: Path) -> dict[str, Any]:
     }
     expected_entries = expected_bundle_files | {"vector.json"}
     try:
-        if not root.is_dir() or root.is_symlink():
-            raise ScaleReadinessError("contract_fixture_invalid")
+        closed_path_metadata(root, directory=True)
         entries = {path.name for path in root.iterdir()}
         if entries != expected_entries:
             raise ScaleReadinessError("contract_fixture_invalid")
         for name in expected_entries:
-            path = root / name
-            if (
-                not path.is_file()
-                or path.is_symlink()
-                or path.stat().st_size > MAX_JSON_BYTES
-            ):
-                raise ScaleReadinessError("contract_fixture_invalid")
+            closed_path_metadata(root / name, directory=False)
     except ScaleReadinessError:
         raise
     except (OSError, UnicodeError) as exc:
@@ -289,9 +310,6 @@ def validate_contract_fixture(root: Path) -> dict[str, Any]:
             if (
                 not isinstance(expected_digest, str)
                 or not SHA256_RE.fullmatch(expected_digest)
-                or not path.is_file()
-                or path.is_symlink()
-                or path.stat().st_size > MAX_JSON_BYTES
                 or sha256_file(path) != expected_digest
             ):
                 raise ScaleReadinessError("contract_fixture_digest_invalid")

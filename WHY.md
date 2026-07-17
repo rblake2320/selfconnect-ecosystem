@@ -166,8 +166,10 @@ the cross-repository identity is stable across supported checkout newline
 conventions without accepting invalid source bytes.
 
 The fixture validator preflights the exact directory entries before parsing:
-every manifest, rung, and vector must be a bounded regular non-symlink. This
-prevents an otherwise identical external `vector.json` from satisfying a
-closed-fixture check through path redirection. The vector still establishes
+the root must be a real directory, and every manifest, rung, and vector must be
+a bounded, singly linked regular file. Symlinks, Windows junctions, any Windows
+reparse point, and hardlinks are rejected. This prevents an otherwise identical
+external `vector.json` or directory from satisfying a closed-fixture check
+through path redirection or inode aliasing. The vector still establishes
 only internal compatibility-fixture consistency. It is not a signature and
 does not authenticate the producer or replace the attested live artifact path.

@@ -301,3 +301,13 @@
   `contract_fixture_invalid` before reading the JSON.
 - This closes a local path-integrity gap only. Hash agreement inside a fixture
   remains internal consistency, not producer authenticity or live evidence.
+
+## 2026-07-17 R6 closed fixture paths
+
+- Centralized fixture-path checks around no-follow metadata. The root must be a
+  real non-reparse directory; every entry must be a bounded regular file with
+  link count exactly one.
+- Rejects symbolic links, Windows directory junctions, any Windows reparse-point
+  attribute, and hardlinked files before parsing or hashing.
+- Added direct Windows tests using `mklink /J` and `os.link` against identical
+  external fixture bytes. Both alias paths fail with `contract_fixture_invalid`.
