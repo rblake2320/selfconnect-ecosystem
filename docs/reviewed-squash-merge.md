@@ -1,0 +1,32 @@
+# Reviewed squash merge procedure
+
+GitHub's default squash message can concatenate intermediate commit messages.
+Those messages are working notes and may contain superseded counts or rejected
+designs. They are not evidence.
+
+Use the gate helper for an intentionally reviewed squash merge:
+
+```powershell
+python scripts/merge_message_gate.py merge-pr `
+  --repo rblake2320/REPOSITORY `
+  --pr 123 `
+  --subject "fix: reviewed final subject" `
+  --body-file .review/final-pr-body.md `
+  --evidence-file .review/final-evidence.json `
+  --delete-branch
+```
+
+The body and evidence inputs must be retained in the PR or a durable workflow
+artifact. The helper refuses draft/closed PRs, scans every PR commit page,
+binds the reviewed body and evidence digests to the exact PR head, supplies
+explicit `gh pr merge --subject/--body-file` values, and uses
+`--match-head-commit` without `--admin` or automatic merge.
+
+On a pull request, `merge-message-gate` scans `base..head`. On a push to main,
+it checks every first-parent commit after the pinned adoption baseline for the
+reviewed trailers. The latter is detection: an administrator can bypass the
+helper, but the unmanaged result turns the gate red and cannot be cited as
+governed evidence.
+
+Do not advance `scripts/merge_message_baseline.txt` to hide a failure. A
+baseline change requires a dated `LOG.md` incident/boundary record and review.

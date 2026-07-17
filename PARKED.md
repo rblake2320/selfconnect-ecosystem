@@ -1,5 +1,16 @@
 # Parked
 
+- **Cryptographic reviewer identity for merge trailers**: the reviewed-message
+  trailers are hashes, not signatures. They detect default/unmanaged merges and
+  bind retained inputs, but do not prove which person approved them. Adding a
+  protected external signer requires independent key custody and a verifier;
+  repository code cannot self-establish that custody.
+- **Absolute owner-bypass prevention**: the helper never uses `--admin`, and
+  branch protection should enforce checks for administrators. A repository
+  owner can still change protection or forge trailers. The post-merge scan
+  makes that state visible; it does not claim to make administration
+  impossible.
+
 Deliberately out of scope for the release claim scan, recorded so absence is
 not mistaken for oversight:
 
