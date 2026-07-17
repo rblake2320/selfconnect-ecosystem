@@ -186,3 +186,134 @@
   retained v0.6 statement that denied actions were never exposed to
   observers (v1.0.0 shipped unfiltered context_before, GAPS OBS-1; master
   2026-07-14 filters primary+context under named tests).
+
+## 2026-07-17
+
+- Added a separate fail-closed real-agent scale evidence gate for ecosystem
+  issue #5. The previous live-readiness checker covered repository state,
+  single-provider access, TPM, and signed MSI evidence but did not execute or
+  validate the documented 10/15/20-agent ladder.
+- Independent review rejected the original ecosystem-side v3 collector because
+  it invoked provider CLIs with unsafe automation modes, relied on self-hashes,
+  and reduced synthetic window identifiers without a full target-guard receipt.
+  That draft implementation is superseded and cannot produce accepted evidence.
+- The ecosystem workflow is now a consumer only. It downloads a successful
+  core `Restricted Real-Agent Scale Producer` artifact, verifies GitHub's
+  artifact attestation against the exact signer workflow, source ref, source
+  commit, and run identity, then performs bounded ZIP extraction before parsing.
+  No provider credential or provider process exists in the ecosystem workflow.
+- The v2 contract rejects legacy v3, extra JSON fields, stale or non-current
+  evidence, unsafe or conflicting CLI policies, unpinned CLI versions/help,
+  missing Gemini deny-all policy evidence, forged provider mixes/roles/hashes,
+  repeated nonces/run IDs, invalid producer guard assertions, overlapping rungs, and
+  unsupported model-call claims. It records CLI invocation accounting only;
+  API-key mode is a bounded requested-mode assertion, not a provider receipt.
+- The consumer report is itself attested and retains the original attested ZIP.
+  This is contract implementation, not live proof: no restricted producer run
+  has executed and issue #5 remains open.
+- Independent review then closed remaining composition gaps: both process-
+  stdout and UIA ACK observations now carry distinct event identifiers,
+  provenance labels, and strict temporal order; roles are owned by their named
+  provider; and static required-policy hashes are separate from observed
+  version/help/entrypoint/executable evidence. The consumer recomputes the
+  bounded process-tree projection and validates the producer's relational guard
+  assertion, but does not represent it as an independently observed receipt.
+- The consumer now parses GitHub CLI's verified attestation result instead of
+  accepting any non-empty JSON array. It binds the certificate signer/source/
+  ref/run fields, verified timestamp presence, SLSA predicate type, and exact
+  archive subject digest. The retained report derives that identity and adds
+  the consumer Actions run ID, attempt, actor, workflow, repository, and source
+  SHA before the report is provenance-attested.
+- Final local consumer checkpoint: 87/87 repository unit tests and 38/38
+  focused scale-evidence tests pass (including 48 adversarial subtests).
+  Producer-generated 10/15/20 fixtures passed the consumer cross-validation;
+  the producer's focused 26 tests also pass. Both readiness npm scripts, Ruff
+  on changed Python files, Python compilation, YAML parsing, and diff checks
+  pass. After a frozen-lockfile install, the full workspace npm suite passes
+  (17 passed, 6 live tests skipped). The untouched repository has two
+  pre-existing full-tree Ruff E741 findings outside this change.
+
+## 2026-07-17 consumer truth-boundary correction
+
+- Removed producer-supplied `ephemeral_runner`, `dedicated_runner`,
+  `sensitive_repositories_present`, and `runner_image_sha256` from the accepted
+  manifest. Workflow inputs and environment variables cannot prove those host
+  properties.
+- Added a separate paginated GitHub Actions jobs lookup. The consumer requires
+  one successful `restricted-scale-producer` job on the expected run and source
+  commit, with a concrete runner and the expected runner group/labels. The
+  report distinguishes requested runner configuration, externally observed
+  GitHub job metadata, and the attestation's runner environment.
+- Replaced requested auth/argv/credential-allowlist assertions with exact
+  producer-observed provider argv and constructed initial environment-name
+  projections. Extra or
+  missing names, unsafe flags, or a requested-policy-shaped substitute fail.
+- Renamed the former `uia_terminal` ACK to `rendered_terminal_copy` and bound it
+  to the provider-stdout event with `derivative_of_event_id`. A terminal render
+  of captured stdout is derivative evidence, not independent corroboration.
+- The consumer now deliberately rejects the current producer PR #24 artifact
+  until its job name and emitted schema are corrected. No provider workflow was
+  dispatched and no live-provider claim was created by this checkpoint.
+- Local verification: 41 focused scale-contract tests (52 subtests), 90 full
+  Python repository tests, readiness scripts, Ruff, Python compilation, YAML
+  parsing, `git diff --check`, and the frozen-lockfile workspace test suite pass
+  (17 JavaScript tests passed; 6 credentialed live tests remained skipped).
+
+## 2026-07-17 R3 consumer contract correction
+
+- Renamed `actual_environment_names` to
+  `constructed_initial_environment_names`. The producer can establish which
+  names it placed into the child-creation environment; it does not externally
+  read a launched process environment. The old field is rejected with no
+  compatibility fallback.
+- Reconciled the draft with ecosystem `main` after the reviewed merge-message
+  gate landed, retaining both test commands in `package.json`.
+- Added a producer-generated sanitized bundle vector as the cross-repository
+  compatibility fixture. Producer tests regenerate and byte-compare the same
+  files; consumer tests verify their digests and pass them through the
+  production validator. This does not substitute for a live provider run.
+- R3 verification: 43 focused scale-contract tests (52 subtests), 92 unittest
+  repository tests, 31 merge-message tests, all readiness commands, changed-file
+  Ruff, Python compilation, workflow YAML parsing, `git diff --check`, and the
+  frozen-lockfile workspace suite pass (17 JavaScript tests passed; 6
+  credentialed live tests skipped).
+
+## 2026-07-17 R4 producer-fixture identity binding
+
+- Replaced the compatibility fixture with the producer PR #24 head `79a4432`
+  output generated after canonical strict-UTF-8 and newline-normalized source
+  hashing. The five copied files are byte-identical to the producer worktree.
+- `validate_contract_fixture()` now requires the vector's
+  `generator_source_sha256` to equal the manifest's
+  `code_identity.producer_sha256`, in addition to validating the closed file
+  set and every recorded bundle-file digest. The accepted generator digest is
+  `964de01a34285eb4a7fdf3bd3cd6f05bf4971c7e0644eb0c886fbd2c2717a0be`.
+- Added a regression proving a substituted generator identity fails closed
+  before the bundle reaches scale-readiness validation. This remains a
+  deterministic compatibility vector, not live-provider evidence.
+
+## 2026-07-17 R5 fixture entry preflight
+
+- Moved exact-entry validation ahead of `vector.json` parsing. All five required
+  files must be bounded regular files and must not be symlinks.
+- Added a direct regression where `vector.json` is replaced by a symlink to an
+  identical external file; validation now fails with
+  `contract_fixture_invalid` before reading the JSON.
+- This closes the reproduced direct-entry path case only. Hash agreement inside
+  a fixture remains internal consistency, not producer authenticity or live
+  evidence.
+
+## 2026-07-17 R6 direct fixture-entry preflight
+
+- Centralized direct fixture-path checks around no-follow metadata. The supplied
+  root is rejected when it is itself a reparse point; every direct entry must be
+  a bounded regular file with link count exactly one.
+- Rejects direct symbolic links, a direct Windows directory-junction root,
+  direct reparse-point entries, and hardlinked files before parsing or hashing.
+- Added direct Windows tests using `mklink /J` and `os.link` against identical
+  external fixture bytes. Both alias paths fail with `contract_fixture_invalid`.
+- Boundary correction: this helper assumes a trusted checkout. It does not
+  inspect/hold every ancestor component and does not keep no-follow handles from
+  lstat through open, parse, and hash. Ancestor reparse indirection and a
+  concurrent lstat-to-open swap remain explicit residuals. No authenticity or
+  live-evidence claim attaches to this preflight.

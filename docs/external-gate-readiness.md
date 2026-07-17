@@ -49,6 +49,78 @@ The live workflow invokes the default fail-closed command. Missing runner,
 token, repository, permission, provider response, platform capability, or
 artifact evidence is a failure, not `NA`.
 
+The base live gate does not establish the separate 10/15/20-agent scale
+ladder. `.github/workflows/scale-readiness.yml` is a manual hosted **consumer**
+for restricted scale evidence. It does not launch providers, hold provider
+credentials, or run the ladder. The canonical `selfconnect` producer tracked
+by selfconnect issue #21 must run these exact visible-agent mixes on a
+dedicated disposable Windows runner:
+
+- 10 Gemini agents;
+- 15 agents split 5 Codex, 5 Claude, and 5 Gemini; and
+- 20 agents split 7 Codex, 7 Claude, and 6 Gemini.
+
+The producer requires protected provider capacity and exact, isolated
+provider-process environments. Those credentials belong only in the core
+producer environment; none is configured in the ecosystem consumer. Requested
+environment and runner-group values are retained as configuration, not proof
+that the host was disposable, dedicated, clean, or built from a particular
+image. The consumer separately fetches the GitHub Actions jobs result and binds
+the successful producer job, runner, runner group, labels, run, and source
+commit into its report. GitHub job metadata still does not prove runner-image
+contents or absence of sensitive data.
+
+The producer pins the required policy projections and Gemini deny-all policy
+separately from observed CLI versions, canonical help-output hashes, direct
+package entrypoint hashes, and provider executable names used for the run. Each
+invocation records `actual_argv_projection` and
+`constructed_initial_environment_names`; the latter describes the environment
+constructed for child creation, not an externally read post-launch process
+environment. The consumer requires the exact bounded values
+and rejects the former requested-policy/credential-allowlist schema.
+
+Every agent must provide one reduced observation of the standalone ACK captured
+from provider stdout. A later terminal rendering may be retained only as an
+explicit derivative of that stdout event. It is not independent UIA evidence
+and does not add a second source of truth. Both hashes must equal the recomputed
+expected ACK, the derivative must name the stdout event, timestamps must be
+ordered inside the agent interval, and exit status must be zero. This is
+producer-attested reduced evidence, not a provider-signed API receipt, an
+independent terminal observation, or proof of an absolute no-write property.
+
+The bundle deliberately retains the numeric process-tree root, provider,
+window, and session identifiers plus a bounded PID/parent/executable projection
+needed to check the producer's process-tree/window guard assertion. The consumer
+recomputes that projection digest and requires the provider process to descend
+from the Windows Terminal root with the pinned provider executable and
+entrypoint. It excludes raw provider output, window-title text, local paths,
+and credential values. The guard assertion is integrity-bound by the GitHub-
+attested archive but is not represented as an independently signed guard
+receipt. Exact schemas reject extra fields and files.
+
+The checked-in producer compatibility fixture has a narrower boundary than the
+live attested artifact path. Under a trusted checkout, its supplied root and
+direct entries are preflighted to reject direct symlinks, a direct junction
+root, reparse-point entries, and hardlinks. The helper does not prove ancestor
+path containment and does not hold no-follow handles across subsequent reads;
+ancestor reparse indirection and lstat-to-open replacement are explicit
+residuals. Fixture hash agreement establishes internal test consistency only,
+not producer authenticity or live evidence.
+
+Before parsing, the ecosystem workflow verifies GitHub artifact provenance
+against the exact core signer workflow, `master` source ref, and producer run
+commit. The consumer then parses the verified certificate, timestamps, SLSA
+predicate and exact archive subject digest instead of accepting an opaque
+verification blob. Verification binds the archive SHA-256, producer run ID,
+attempt, actor, source commit, current core head, ecosystem contract commit, and
+consumer run ID/attempt/actor into an attested consumer report. A separately
+downloaded, paginated GitHub jobs result binds the successful producer job and
+runner-group identity rather than accepting runner facts from the artifact.
+Missing/modified files, a wrong role-provider map,
+reused nonce or run ID, stale/overlapping rungs, policy drift, quota/auth
+failure, or legacy v3 evidence fails closed. Closing or editing issue #5 cannot
+cause this gate to pass.
+
 The enterprise TPM module is not imported or executed until the complete
 canonical repository precondition passes. A dirty, forked, wrong-branch, or
 stale local checkout therefore cannot supply executable probe code.
@@ -135,6 +207,11 @@ Open trackers:
 | TPM platform attestation PASS artifact | https://github.com/rblake2320/selfconnect-ecosystem/issues/3 |
 | Windows MSI signing and signed artifact | https://github.com/rblake2320/selfconnect-ecosystem/issues/4 |
 
+Until the restricted core producer completes and the hosted consumer accepts
+all three rungs, issue #5 remains open and no 10/15/20 scale-readiness claim is
+established. A green hosted `readiness` job proves only the validator contract
+and adversarial tests; it is not live scale evidence.
+
 ## Primary References
 
 - Gemini CLI non-interactive options:
@@ -143,5 +220,7 @@ Open trackers:
   https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/authentication.mdx
 - GitHub Actions workflow-run evidence fields:
   https://docs.github.com/en/rest/actions/workflow-runs
+- GitHub artifact attestations:
+  https://docs.github.com/en/actions/concepts/security/artifact-attestations
 - GitHub workflow badges:
   https://docs.github.com/en/actions/how-tos/monitor-workflows/add-a-status-badge

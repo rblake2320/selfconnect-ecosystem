@@ -99,3 +99,80 @@ NIST SP 800-204C covers DevSecOps for microservices and service meshes; it does
 not define the IBCT/AIP terms previously attributed to it. Preserving a dated
 correction is more defensible than substituting a different unsupported
 mapping.
+
+## Scale readiness is evidence, not issue state (2026-07-17)
+
+The base live-readiness workflow deliberately tests bounded platform and
+artifact gates. Ecosystem issue #5, however, requires three costly real-agent
+runs with exact provider mixes. Listing that issue in documentation did not
+make it executable, and checking whether the issue was open or closed would
+let repository metadata substitute for runtime evidence.
+
+The scale gate is therefore separate and split across repositories. A
+restricted, disposable Windows producer belongs in canonical `selfconnect`,
+where the Win32 guard and provider-launch implementation can be reviewed with
+the code it exercises. The ecosystem workflow does not launch providers. It
+accepts only an attested v2 archive signed by the exact core producer workflow
+on current `master`, then independently validates and attests the reduced
+contract. Hosted CI tests the consumer but cannot claim the live agents ran.
+This separation prevents ecosystem secrets or synthetic fixtures from being
+mistaken for execution evidence.
+
+The evidence bundle is a closed, reduced projection rather than raw provider
+output. GitHub artifact attestation provides the external integrity and signer
+boundary; in-bundle hashes alone are not treated as authenticity. The consumer
+parses the verified certificate, timestamps, SLSA subject digest, source ref,
+source digest, signer workflow, and producer run URI rather than trusting a
+caller-supplied identity. Each agent retains a cryptorandom nonce, recomputed
+expected-ACK hash, one provider-stdout observation, and a later terminal copy
+that is explicitly bound as a derivative of that stdout event. A terminal that
+renders captured stdout is not independent UIA evidence and is not counted as
+corroboration. Static required-
+policy hashes remain distinct from observed CLI version/help/entrypoint data.
+The consumer recomputes the bounded process-tree projection and checks its
+window-root-to-provider relationship. This remains a producer assertion covered
+by the workflow's GitHub artifact attestation, not a separately observed or
+signed guard receipt. Exact schemas and
+cross-rung uniqueness checks prevent substituted
+shape-compatible evidence and unsupported claims from passing.
+
+Provider safety claims stay narrow. Requested flags and credential allowlists
+are rejected as runtime evidence. The producer must record the actual provider
+argv projection and constructed initial environment-variable names passed at
+child creation; the
+consumer compares those to the exact bounded contract. This remains an attested
+producer observation, not a provider receipt or proof that a model made exactly
+one API call. Gemini's
+noninteractive Plan mode can transition toward YOLO; the contract therefore
+also pins a deny-all admin policy and sandbox request, while still describing
+the result only as requested restricted controls plus an observed exact ACK.
+The protected runner group and isolated provider environment remain mandatory
+defense-in-depth boundaries. The consumer independently binds GitHub's job and
+runner-group metadata, but neither that metadata nor workflow inputs prove an
+ephemeral image, disk cleanliness, or absence of sensitive repositories.
+
+The retained consumer report records its own GitHub Actions run ID, attempt,
+actor, workflow, repository, source SHA, and main-branch context. The verifier
+requires those values to match the live Actions environment before the report
+can say `ready`; the report is then separately provenance-attested.
+
+The checked-in producer compatibility vector binds two independent locations
+inside the generated fixture: the vector's generator-source digest and the
+manifest's producer-code digest must be identical. File hashes alone would
+detect edited bundle bytes but would not prove that the advertised generator
+identity matched the identity consumed by the normal manifest validator.
+Producer source hashing decodes strict UTF-8 and canonicalizes CRLF/CR to LF so
+the cross-repository identity is stable across supported checkout newline
+conventions without accepting invalid source bytes.
+
+The fixture validator preflights its direct directory entries before parsing:
+the supplied root must not itself be a reparse point, and every manifest, rung,
+and vector must be a bounded, singly linked regular file. Direct symlinks,
+Windows junction roots, reparse-point entries, and hardlinks are rejected. This
+is a test-helper control under a trusted-checkout assumption, not a general path
+containment boundary. It does not walk and hold every ancestor directory, and
+it does not keep no-follow handles open across later parsing/hashing; an
+ancestor reparse point and an lstat-to-open swap are explicit residuals. The
+vector establishes only internal compatibility-fixture consistency. It is not
+a signature and does not authenticate the producer or replace the attested
+live artifact path.
