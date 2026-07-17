@@ -43,7 +43,7 @@ def argv_policy(provider: str) -> list[str]:
     }[provider]
 
 
-def agent(provider: str, ordinal: int, *, seed: str) -> dict:
+def agent(provider: str, ordinal: int, *, seed: str, observed_at: datetime) -> dict:
     role = f"real{provider}-{ordinal}"
     nonce = digest(f"nonce:{seed}:{provider}:{ordinal}")
     expected = scale.expected_ack(provider, role, nonce)
@@ -61,6 +61,9 @@ def agent(provider: str, ordinal: int, *, seed: str) -> dict:
         "exe_name": "WindowsTerminal.exe",
         "title_sha256": digest(f"SC_SCALE {provider} {role} {nonce}"),
         "process_tree_sha256": digest(f"tree:{seed}:{provider}:{ordinal}"),
+        "provider_entrypoint_sha256": scale.PROVIDER_PINS[provider][
+            "entrypoint_sha256"
+        ],
     }
     return {
         "provider": provider,
@@ -68,9 +71,20 @@ def agent(provider: str, ordinal: int, *, seed: str) -> dict:
         "nonce": nonce,
         "nonce_sha256": digest(nonce),
         "expected_sha256": digest(expected),
-        "exact_ack": True,
+        "observed_acks": {
+            "process_stdout": {
+                "sha256": digest(expected),
+                "captured_at_utc": observed_at.isoformat(),
+            },
+            "uia_terminal": {
+                "sha256": digest(expected),
+                "captured_at_utc": (observed_at + timedelta(seconds=1)).isoformat(),
+            },
+        },
         "status": "pass",
         "provider_outcome": {"auth_failed": False, "quota_exceeded": False},
+        "started_at_utc": (observed_at - timedelta(minutes=1)).isoformat(),
+        "completed_at_utc": (observed_at + timedelta(minutes=1)).isoformat(),
         "invocation": {
             "provider": provider,
             "exit_code": 0,
@@ -83,15 +97,26 @@ def agent(provider: str, ordinal: int, *, seed: str) -> dict:
                 }[provider]
             ],
             "argv_policy": argv_policy(provider),
-            "executable_sha256": digest(f"exe:{provider}"),
+            "cli_version": scale.PROVIDER_PINS[provider]["cli_version"],
+            "help_policy_sha256": scale.PROVIDER_PINS[provider]["help_policy_sha256"],
+            "tool_policy_sha256": scale.PROVIDER_PINS[provider]["tool_policy_sha256"],
+            "entrypoint_sha256": scale.PROVIDER_PINS[provider]["entrypoint_sha256"],
         },
-        "guard": {"claim": claim, "digest": scale.sha256_bytes(scale.canonical_json(claim))},
+        "producer_guard_assertion": {
+            "claim": claim,
+            "digest": scale.sha256_bytes(scale.canonical_json(claim)),
+        },
     }
 
 
 def rung(agent_count: int, *, start: datetime) -> dict:
     agents = [
-        agent(provider, ordinal, seed=str(agent_count))
+        agent(
+            provider,
+            ordinal,
+            seed=str(agent_count),
+            observed_at=start + timedelta(minutes=2),
+        )
         for provider, count in scale.RUNGS[agent_count].items()
         for ordinal in range(1, count + 1)
     ]
@@ -192,6 +217,8 @@ class ScaleReadinessTests(unittest.TestCase):
                 expected_ecosystem_sha=ECOSYSTEM_SHA,
                 expected_producer_run_id=PRODUCER_RUN_ID,
                 now=NOW,
+                producer_archive_sha256=digest("archive"),
+                verified_attestation_result_sha256=digest("attestation-result"),
                 **kwargs,
             )
 
@@ -202,7 +229,23 @@ class ScaleReadinessTests(unittest.TestCase):
             report = self.validate(bundle)
         self.assertEqual(report["status"], "ready")
         self.assertEqual(report["rungs"], [10, 15, 20])
-        self.assertIn("attestation", report["attestation_boundary"].lower())
+        self.assertEqual(report["producer_archive_sha256"], digest("archive"))
+        self.assertEqual(
+            report["verified_attestation_result_sha256"],
+            digest("attestation-result"),
+        )
+        self.assertEqual(report["producer_run_id"], PRODUCER_RUN_ID)
+        self.assertEqual(report["producer_run_attempt"], 1)
+        self.assertEqual(report["producer_actor"], "restricted-producer")
+        self.assertEqual(
+            report["verified_attestation_identity"],
+            {
+                "repository": "rblake2320/selfconnect",
+                "signer_workflow": scale.PRODUCER_SIGNER_WORKFLOW,
+                "source_ref": scale.PRODUCER_SOURCE_REF,
+                "source_digest": CORE_HEAD,
+            },
+        )
 
     def test_legacy_v3_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -225,13 +268,20 @@ class ScaleReadinessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             bundle = Path(temp)
             build_bundle(bundle)
+            def make_stale(value):
+                value.update(
+                    started_at_utc="2000-01-01T00:00:00+00:00",
+                    completed_at_utc="2000-01-01T00:05:00+00:00",
+                )
+                for agent_value in value["agents"]:
+                    agent_value["started_at_utc"] = "2000-01-01T00:01:00+00:00"
+                    agent_value["completed_at_utc"] = "2000-01-01T00:03:00+00:00"
+                    for observation in agent_value["observed_acks"].values():
+                        observation["captured_at_utc"] = "2000-01-01T00:02:00+00:00"
             mutate_rung(
                 bundle,
                 10,
-                lambda value: value.update(
-                    started_at_utc="2000-01-01T00:00:00+00:00",
-                    completed_at_utc="2000-01-01T00:05:00+00:00",
-                ),
+                make_stale,
             )
             self.assert_status("rung_time_invalid", lambda: self.validate(bundle))
 
@@ -247,6 +297,8 @@ class ScaleReadinessTests(unittest.TestCase):
                         expected_ecosystem_sha=ECOSYSTEM_SHA,
                         expected_producer_run_id=PRODUCER_RUN_ID,
                         now=NOW,
+                        producer_archive_sha256=digest("archive"),
+                        verified_attestation_result_sha256=digest("attestation-result"),
                     ),
                 )
 
@@ -365,6 +417,8 @@ class ScaleReadinessTests(unittest.TestCase):
                         expected_ecosystem_sha="c" * 40,
                         expected_producer_run_id=PRODUCER_RUN_ID,
                         now=NOW,
+                        producer_archive_sha256=digest("archive"),
+                        verified_attestation_result_sha256=digest("attestation-result"),
                     ),
                 )
 
@@ -385,6 +439,10 @@ class ScaleReadinessTests(unittest.TestCase):
                                 expected_ecosystem_sha=ECOSYSTEM_SHA,
                                 expected_producer_run_id=PRODUCER_RUN_ID,
                                 now=NOW,
+                                producer_archive_sha256=digest("archive"),
+                                verified_attestation_result_sha256=digest(
+                                    "attestation-result"
+                                ),
                                 **kwargs,
                             ),
                         )
@@ -402,6 +460,38 @@ class ScaleReadinessTests(unittest.TestCase):
                 build_bundle(bundle)
                 mutate_rung(bundle, 15, mutation)
                 self.assert_status(status, lambda: self.validate(bundle))
+
+    def test_role_cannot_be_reassigned_to_another_provider(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            bundle = Path(temp)
+            build_bundle(bundle)
+            def swap(value):
+                claude = next(agent for agent in value["agents"] if agent["provider"] == "claude")
+                codex = next(agent for agent in value["agents"] if agent["provider"] == "codex")
+                claude["role"], codex["role"] = codex["role"], claude["role"]
+            mutate_rung(bundle, 15, swap)
+            self.assert_status("agent_role_invalid", lambda: self.validate(bundle))
+
+    def test_invocation_must_repeat_approved_provider_pins(self) -> None:
+        for field, value in (
+            ("entrypoint_sha256", "0" * 64),
+            ("cli_version", "different"),
+            ("help_policy_sha256", "0" * 64),
+            ("tool_policy_sha256", "0" * 64),
+        ):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as temp:
+                bundle = Path(temp)
+                build_bundle(bundle)
+                mutate_rung(
+                    bundle,
+                    10,
+                    lambda rung_value: rung_value["agents"][0]["invocation"].update(
+                        {field: value}
+                    ),
+                )
+                self.assert_status(
+                    "provider_invocation_not_pinned", lambda: self.validate(bundle)
+                )
 
     def test_nonce_and_expected_hashes_are_recomputed(self) -> None:
         for field in ("nonce_sha256", "expected_sha256"):
@@ -423,9 +513,13 @@ class ScaleReadinessTests(unittest.TestCase):
                 target["nonce"] = nonce
                 target["nonce_sha256"] = digest(nonce)
                 target["expected_sha256"] = digest(scale.expected_ack(provider, role, nonce))
-                claim = target["guard"]["claim"]
+                for observation in target["observed_acks"].values():
+                    observation["sha256"] = target["expected_sha256"]
+                claim = target["producer_guard_assertion"]["claim"]
                 claim["title_sha256"] = digest(f"SC_SCALE {provider} {role} {nonce}")
-                target["guard"]["digest"] = scale.sha256_bytes(scale.canonical_json(claim))
+                target["producer_guard_assertion"]["digest"] = scale.sha256_bytes(
+                    scale.canonical_json(claim)
+                )
             mutate_rung(bundle, 10, reuse_within)
             self.assert_status("agent_nonce_invalid", lambda: self.validate(bundle))
         with tempfile.TemporaryDirectory() as temp:
@@ -439,9 +533,13 @@ class ScaleReadinessTests(unittest.TestCase):
                 target["nonce"] = nonce
                 target["nonce_sha256"] = digest(nonce)
                 target["expected_sha256"] = digest(scale.expected_ack(provider, role, nonce))
-                claim = target["guard"]["claim"]
+                for observation in target["observed_acks"].values():
+                    observation["sha256"] = target["expected_sha256"]
+                claim = target["producer_guard_assertion"]["claim"]
                 claim["title_sha256"] = digest(f"SC_SCALE {provider} {role} {nonce}")
-                target["guard"]["digest"] = scale.sha256_bytes(scale.canonical_json(claim))
+                target["producer_guard_assertion"]["digest"] = scale.sha256_bytes(
+                    scale.canonical_json(claim)
+                )
             mutate_rung(bundle, 15, reuse)
             self.assert_status("cross_rung_nonce_reuse", lambda: self.validate(bundle))
 
@@ -456,7 +554,13 @@ class ScaleReadinessTests(unittest.TestCase):
             with self.subTest(status=status), tempfile.TemporaryDirectory() as temp:
                 bundle = Path(temp)
                 build_bundle(bundle)
-                mutate_rung(bundle, 10, lambda value: mutation(value["agents"][0]["guard"]))
+                mutate_rung(
+                    bundle,
+                    10,
+                    lambda value: mutation(
+                        value["agents"][0]["producer_guard_assertion"]
+                    ),
+                )
                 self.assert_status(status, lambda: self.validate(bundle))
 
     def test_semantically_invalid_but_rehashed_guard_fails(self) -> None:
@@ -464,15 +568,30 @@ class ScaleReadinessTests(unittest.TestCase):
             bundle = Path(temp)
             build_bundle(bundle)
             def invalidate(value):
-                guard = value["agents"][0]["guard"]
+                guard = value["agents"][0]["producer_guard_assertion"]
                 guard["claim"]["provider_in_spawn_tree"] = False
                 guard["digest"] = scale.sha256_bytes(scale.canonical_json(guard["claim"]))
             mutate_rung(bundle, 10, invalidate)
-            self.assert_status("guard_receipt_invalid", lambda: self.validate(bundle))
+            self.assert_status("guard_assertion_invalid", lambda: self.validate(bundle))
 
-    def test_exact_ack_and_provider_outcomes_are_required(self) -> None:
+    def test_both_observed_acks_and_provider_outcomes_are_required(self) -> None:
         for mutation, status in (
-            (lambda agent: agent.update(exact_ack=False), "exact_ack_missing"),
+            (
+                lambda agent: agent["observed_acks"].pop("uia_terminal"),
+                "observed_ack_invalid",
+            ),
+            (
+                lambda agent: agent["observed_acks"]["process_stdout"].update(
+                    sha256="0" * 64
+                ),
+                "observed_ack_invalid",
+            ),
+            (
+                lambda agent: agent["observed_acks"]["uia_terminal"].update(
+                    captured_at_utc="2000-01-01T00:00:00+00:00"
+                ),
+                "observed_ack_invalid",
+            ),
             (
                 lambda agent: agent.update(provider_outcome={"auth_failed": True, "quota_exceeded": False}),
                 "provider_outcome_invalid",
@@ -503,6 +622,23 @@ class ScaleReadinessTests(unittest.TestCase):
             )
             self.assert_status("rung_order_invalid", lambda: self.validate(bundle))
 
+    def test_agents_must_have_a_shared_concurrency_window(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            bundle = Path(temp)
+            build_bundle(bundle)
+            def make_sequential(value):
+                last = value["agents"][-1]
+                last["started_at_utc"] = (
+                    datetime.fromisoformat(value["completed_at_utc"]) - timedelta(seconds=30)
+                ).isoformat()
+                last["completed_at_utc"] = value["completed_at_utc"]
+                for observation in last["observed_acks"].values():
+                    observation["captured_at_utc"] = last["completed_at_utc"]
+            mutate_rung(bundle, 10, make_sequential)
+            self.assert_status(
+                "agent_concurrency_not_established", lambda: self.validate(bundle)
+            )
+
     def test_run_ids_must_be_unique_across_rungs(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             bundle = Path(temp)
@@ -532,6 +668,19 @@ class ScaleReadinessTests(unittest.TestCase):
             self.assert_status("evidence_json_invalid", lambda: scale.load_json(path))
             path.write_bytes(b" " * (scale.MAX_JSON_BYTES + 1))
             self.assert_status("evidence_json_too_large", lambda: scale.load_json(path))
+
+    def test_verified_attestation_result_must_be_nonempty_json_array(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "verified-attestation.json"
+            for payload in ("", "{}", "[]", '[{"ok":true,"ok":false}]'):
+                with self.subTest(payload=payload):
+                    path.write_text(payload, encoding="utf-8")
+                    self.assert_status(
+                        "attestation_result_invalid",
+                        lambda: scale.attestation_result_sha256(path),
+                    )
+            path.write_text('[{"verificationResult":{}}]', encoding="utf-8")
+            self.assertEqual(scale.attestation_result_sha256(path), scale.sha256_file(path))
 
     def test_archive_extraction_accepts_only_exact_flat_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -570,6 +719,9 @@ class ScaleReadinessTests(unittest.TestCase):
         self.assertIn("--source-ref refs/heads/master", workflow)
         self.assertIn("--source-digest $run.head_sha", workflow)
         self.assertIn("scale_readiness.py extract", workflow)
+        self.assertIn("--producer-archive (Join-Path $env:RUNNER_TEMP", workflow)
+        self.assertIn("--verified-attestation-result (Join-Path $env:RUNNER_TEMP", workflow)
+        self.assertIn("--format json | Set-Content", workflow)
         self.assertIn("--expected-producer-run-attempt $env:PRODUCER_RUN_ATTEMPT", workflow)
         self.assertIn("--expected-producer-actor $env:PRODUCER_ACTOR", workflow)
         self.assertIn("actions/attest-build-provenance@0f67c3f", workflow)

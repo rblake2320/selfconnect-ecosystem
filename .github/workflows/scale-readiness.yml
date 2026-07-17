@@ -82,11 +82,13 @@ jobs:
           if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) {
             throw "attested producer archive is missing"
           }
+          $attestationResult = Join-Path $source 'verified-attestation.json'
           gh attestation verify $archive `
             --repo rblake2320/selfconnect `
             --signer-workflow github.com/rblake2320/selfconnect/.github/workflows/restricted-scale-producer.yml `
             --source-ref refs/heads/master `
-            --source-digest $run.head_sha
+            --source-digest $run.head_sha `
+            --format json | Set-Content -LiteralPath $attestationResult -Encoding utf8NoBOM
           if ($LASTEXITCODE -ne 0) { throw "producer artifact attestation failed" }
 
           $bundle = Join-Path $env:RUNNER_TEMP 'scale-evidence-bundle'
@@ -104,6 +106,8 @@ jobs:
             --expected-producer-run-id '${{ inputs.producer_run_id }}' `
             --expected-producer-run-attempt $env:PRODUCER_RUN_ATTEMPT `
             --expected-producer-actor $env:PRODUCER_ACTOR `
+            --producer-archive (Join-Path $env:RUNNER_TEMP 'restricted-producer\scale-evidence.zip') `
+            --verified-attestation-result (Join-Path $env:RUNNER_TEMP 'restricted-producer\verified-attestation.json') `
             --max-evidence-age-hours '${{ inputs.max_evidence_age_hours }}' `
             --report-file (Join-Path $env:RUNNER_TEMP 'scale-readiness-report.json')
 
@@ -130,6 +134,7 @@ jobs:
           name: verified-scale-readiness-${{ github.run_id }}
           path: |
             ${{ runner.temp }}/restricted-producer/scale-evidence.zip
+            ${{ runner.temp }}/restricted-producer/verified-attestation.json
             ${{ runner.temp }}/scale-readiness-report.json
           if-no-files-found: error
           retention-days: 30

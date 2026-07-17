@@ -50,36 +50,44 @@ token, repository, permission, provider response, platform capability, or
 artifact evidence is a failure, not `NA`.
 
 The base live gate does not establish the separate 10/15/20-agent scale
-ladder. `.github/workflows/scale-readiness.yml` is the manual **Real-Agent
-Scale Readiness Evidence** gate. It runs the real visible-agent commands on
-the same protected Windows runner instead of inferring readiness from an issue
-state or a synthetic fixture:
+ladder. `.github/workflows/scale-readiness.yml` is a manual hosted **consumer**
+for restricted scale evidence. It does not launch providers, hold provider
+credentials, or run the ladder. The canonical `selfconnect` producer tracked
+by selfconnect issue #21 must run these exact visible-agent mixes on a
+dedicated disposable Windows runner:
 
 - 10 Gemini agents;
 - 15 agents split 5 Codex, 5 Claude, and 5 Gemini; and
 - 20 agents split 7 Codex, 7 Claude, and 6 Gemini.
 
-The scale workflow also requires paid/provider-approved Gemini API capacity
-available to the protected runner. `READINESS_GEMINI_API_KEY` may be supplied
-as a protected `live-readiness` environment secret; an intentionally
-provisioned User/Machine key used by the core runner is the alternative. No
-credential value is written to the evidence bundle or workflow summary.
+The producer requires protected provider capacity and exact, isolated
+credential allowlists. Those credentials belong only in the core producer
+environment; none is configured in the ecosystem consumer. The producer pins
+the CLI versions, help-policy projections, direct package entrypoint hashes,
+and Gemini deny-all admin policy used for the run.
 
-`scripts/scale_readiness.py` requires every agent to have a standalone exact
-ACK from UIA or its provider log. A failed rung, provider quota/auth failure,
-missing visible window, simulation result, incorrect count, duplicate role,
-missing exact ACK, or provider-count substitution fails the gate. The
-collector emits only a reduced non-secret evidence record; raw provider logs,
-window titles, handles, process IDs, and local paths are not uploaded.
-The bundle is closed-set: extra files are rejected, preventing raw provider
-logs from being swept into the evidence artifact accidentally.
+Every agent must provide two reduced observations of the same standalone ACK:
+one captured from process stdout and one captured independently from UIA
+terminal text. Both SHA-256 values must equal the recomputed expected ACK, and
+both capture timestamps must fall inside the rung interval. Exit status must
+be zero. This is producer-attested reduced evidence, not a provider-signed API
+receipt or proof of an absolute no-write property.
 
-Every reduced rung is hashed into a manifest bound to the clean canonical
-`selfconnect/master` SHA returned by a live remote query. Verification rejects
-missing or modified files, duplicate JSON keys, a different/currently stale
-core head, future evidence, and evidence older than 168 hours. The collector
-creates this manifest only after actually running all three rungs. Closing or
-editing issue #5 cannot cause this gate to pass.
+The bundle deliberately retains the numeric spawn, provider, window, and
+session identifiers needed to check the producer's process-tree/window guard
+assertion. It excludes raw provider output, window-title text, local paths, and
+credential values. The guard assertion is integrity-bound by the GitHub-
+attested archive but is not represented as an independently signed guard
+receipt. Exact schemas reject extra fields and files.
+
+Before parsing, the ecosystem workflow verifies GitHub artifact provenance
+against the exact core signer workflow, `master` source ref, and producer run
+commit. Verification then binds the archive SHA-256, producer run ID, attempt,
+actor, source commit, current core head, and ecosystem contract commit into an
+attested consumer report. Missing/modified files, a wrong role-provider map,
+reused nonce or run ID, stale/overlapping rungs, policy drift, quota/auth
+failure, or legacy v3 evidence fails closed. Closing or editing issue #5 cannot
+cause this gate to pass.
 
 The enterprise TPM module is not imported or executed until the complete
 canonical repository precondition passes. A dirty, forked, wrong-branch, or
@@ -167,10 +175,10 @@ Open trackers:
 | TPM platform attestation PASS artifact | https://github.com/rblake2320/selfconnect-ecosystem/issues/3 |
 | Windows MSI signing and signed artifact | https://github.com/rblake2320/selfconnect-ecosystem/issues/4 |
 
-Until a protected runner completes the scale workflow successfully, issue #5
-remains open and no 10/15/20 scale-readiness claim is established. A green
-hosted `readiness` job proves only the validator contract and adversarial tests;
-it is not live scale evidence.
+Until the restricted core producer completes and the hosted consumer accepts
+all three rungs, issue #5 remains open and no 10/15/20 scale-readiness claim is
+established. A green hosted `readiness` job proves only the validator contract
+and adversarial tests; it is not live scale evidence.
 
 ## Primary References
 
@@ -180,5 +188,7 @@ it is not live scale evidence.
   https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/authentication.mdx
 - GitHub Actions workflow-run evidence fields:
   https://docs.github.com/en/rest/actions/workflow-runs
+- GitHub artifact attestations:
+  https://docs.github.com/en/actions/concepts/security/artifact-attestations
 - GitHub workflow badges:
   https://docs.github.com/en/actions/how-tos/monitor-workflows/add-a-status-badge

@@ -109,9 +109,12 @@ mistaken for execution evidence.
 The evidence bundle is a closed, reduced projection rather than raw provider
 output. GitHub artifact attestation provides the external integrity and signer
 boundary; in-bundle hashes alone are not treated as authenticity. Each agent
-retains a cryptorandom nonce, recomputed expected-ACK hash, version-pinned CLI
-policy, and a digest over the full guarded spawn/process-tree/executable/window
-claim. Exact schemas and cross-rung uniqueness checks prevent substituted
+retains a cryptorandom nonce, recomputed expected-ACK hash, two independently
+captured producer observations (stdout and UIA), a version-pinned CLI policy,
+and a digest over the producer's guarded spawn/process-tree/entrypoint/window
+assertion. The guard assertion is covered by the producer workflow's GitHub
+artifact attestation; it is not a separately signed receipt. Exact schemas and
+cross-rung uniqueness checks prevent substituted
 shape-compatible evidence and unsupported claims from passing.
 
 Provider safety claims stay narrow. Installed CLI help and current official

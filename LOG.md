@@ -186,11 +186,18 @@
 - The v2 contract rejects legacy v3, extra JSON fields, stale or non-current
   evidence, unsafe or conflicting CLI policies, unpinned CLI versions/help,
   missing Gemini deny-all policy evidence, forged provider mixes/roles/hashes,
-  repeated nonces/run IDs, invalid full guard receipts, overlapping rungs, and
+  repeated nonces/run IDs, invalid producer guard assertions, overlapping rungs, and
   unsupported model-call claims. It records CLI invocation accounting only;
   API-key mode is a bounded requested-mode assertion, not a provider receipt.
 - The consumer report is itself attested and retains the original attested ZIP.
   This is contract implementation, not live proof: no restricted producer run
-  has executed and issue #5 remains open. The focused adversarial suite is
-  30/30 at this checkpoint; final repository/hosted counts are recorded after
-  the coordinated core producer contract lands.
+  has executed and issue #5 remains open.
+- Independent review then closed remaining composition gaps: both process-
+  stdout and UIA ACK observations are now mandatory and time-bound; roles are
+  owned by their named provider; invocations repeat exact version/help/tool-
+  policy/direct-entrypoint pins; and the report binds archive digest, producer
+  run/attempt/actor, and verified attestation identity. Guard data is explicitly
+  named a producer assertion rather than an independently signed receipt.
+- Final local consumer checkpoint: 84/84 repository unit tests and 35/35
+  focused scale-evidence tests pass. Both npm readiness scripts, Ruff on
+  changed Python files, Python compilation, YAML parsing, and diff checks pass.
