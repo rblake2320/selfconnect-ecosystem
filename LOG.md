@@ -213,3 +213,28 @@
   pass. After a frozen-lockfile install, the full workspace npm suite passes
   (17 passed, 6 live tests skipped). The untouched repository has two
   pre-existing full-tree Ruff E741 findings outside this change.
+
+## 2026-07-17 consumer truth-boundary correction
+
+- Removed producer-supplied `ephemeral_runner`, `dedicated_runner`,
+  `sensitive_repositories_present`, and `runner_image_sha256` from the accepted
+  manifest. Workflow inputs and environment variables cannot prove those host
+  properties.
+- Added a separate paginated GitHub Actions jobs lookup. The consumer requires
+  one successful `restricted-scale-producer` job on the expected run and source
+  commit, with a concrete runner and the expected runner group/labels. The
+  report distinguishes requested runner configuration, externally observed
+  GitHub job metadata, and the attestation's runner environment.
+- Replaced requested auth/argv/credential-allowlist assertions with exact
+  producer-observed provider argv and environment-name projections. Extra or
+  missing names, unsafe flags, or a requested-policy-shaped substitute fail.
+- Renamed the former `uia_terminal` ACK to `rendered_terminal_copy` and bound it
+  to the provider-stdout event with `derivative_of_event_id`. A terminal render
+  of captured stdout is derivative evidence, not independent corroboration.
+- The consumer now deliberately rejects the current producer PR #24 artifact
+  until its job name and emitted schema are corrected. No provider workflow was
+  dispatched and no live-provider claim was created by this checkpoint.
+- Local verification: 41 focused scale-contract tests (52 subtests), 90 full
+  Python repository tests, readiness scripts, Ruff, Python compilation, YAML
+  parsing, `git diff --check`, and the frozen-lockfile workspace test suite pass
+  (17 JavaScript tests passed; 6 credentialed live tests remained skipped).

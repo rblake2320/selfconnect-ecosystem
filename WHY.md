@@ -112,8 +112,10 @@ boundary; in-bundle hashes alone are not treated as authenticity. The consumer
 parses the verified certificate, timestamps, SLSA subject digest, source ref,
 source digest, signer workflow, and producer run URI rather than trusting a
 caller-supplied identity. Each agent retains a cryptorandom nonce, recomputed
-expected-ACK hash, two producer observations with distinct event identifiers,
-capture provenance, and strict stdout-before-UIA ordering. Static required-
+expected-ACK hash, one provider-stdout observation, and a later terminal copy
+that is explicitly bound as a derivative of that stdout event. A terminal that
+renders captured stdout is not independent UIA evidence and is not counted as
+corroboration. Static required-
 policy hashes remain distinct from observed CLI version/help/entrypoint data.
 The consumer recomputes the bounded process-tree projection and checks its
 window-root-to-provider relationship. This remains a producer assertion covered
@@ -122,14 +124,19 @@ signed guard receipt. Exact schemas and
 cross-rung uniqueness checks prevent substituted
 shape-compatible evidence and unsupported claims from passing.
 
-Provider safety claims stay narrow. Installed CLI help and current official
-documentation establish the requested flags, but a requested mode is not a
-provider receipt or proof that a model made exactly one API call. Gemini's
+Provider safety claims stay narrow. Requested flags and credential allowlists
+are rejected as runtime evidence. The producer must record the actual provider
+argv projection and environment-variable names used for the child process; the
+consumer compares those to the exact bounded contract. This remains an attested
+producer observation, not a provider receipt or proof that a model made exactly
+one API call. Gemini's
 noninteractive Plan mode can transition toward YOLO; the contract therefore
 also pins a deny-all admin policy and sandbox request, while still describing
 the result only as requested restricted controls plus an observed exact ACK.
-The dedicated disposable runner and isolated provider environment remain
-mandatory defense-in-depth boundaries.
+The protected runner group and isolated provider environment remain mandatory
+defense-in-depth boundaries. The consumer independently binds GitHub's job and
+runner-group metadata, but neither that metadata nor workflow inputs prove an
+ephemeral image, disk cleanliness, or absence of sensitive repositories.
 
 The retained consumer report records its own GitHub Actions run ID, attempt,
 actor, workflow, repository, source SHA, and main-branch context. The verifier

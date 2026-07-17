@@ -16,14 +16,19 @@ not mistaken for oversight:
   producer, disposable runner group, protected environment, provider capacity,
   and successful attested run are prerequisites outside this change. Issue #5
   remains open until the core workflow executes all three exact provider rungs,
-  emits producer guard assertions and dual ACK observations with distinct event
-  provenance under separately pinned required and observed CLI/tool/entrypoint
+  emits producer guard assertions, a provider-stdout ACK observation, an
+  explicitly derivative terminal rendering, and actual argv/environment-name
+  projections under separately pinned required and observed CLI/tool/entrypoint
   policies, the ecosystem
   consumer accepts the current-head attestation, and retained non-secret
   evidence survives independent review. Legacy v3 output, unit fixtures,
   workflow existence, and issue state cannot close it. The paid ladder remains
   manually dispatched; hosted pull-request CI cannot access a protected Windows
   UI session or establish visible-agent execution.
+  The current core producer PR still emits self-asserted runner properties,
+  requested invocation policy, and a terminal readback labeled as independent
+  UIA evidence. This consumer intentionally rejects that schema until the
+  producer is amended; there is no compatibility fallback.
 - **Current signed MSI evidence**: the available June 21, 2026 workflow run is
   stale relative to current enterprise `master`, and its evidence records
   `signed: false`. Secret-name presence cannot close this. Issue #4 remains the

@@ -61,19 +61,30 @@ dedicated disposable Windows runner:
 - 20 agents split 7 Codex, 7 Claude, and 6 Gemini.
 
 The producer requires protected provider capacity and exact, isolated
-credential allowlists. Those credentials belong only in the core producer
-environment; none is configured in the ecosystem consumer. The producer pins
-  the required policy projections and Gemini deny-all policy separately from
-  observed CLI versions, canonical help-output hashes, direct package
-  entrypoint hashes, and provider executable names used for the run.
+provider-process environments. Those credentials belong only in the core
+producer environment; none is configured in the ecosystem consumer. Requested
+environment and runner-group values are retained as configuration, not proof
+that the host was disposable, dedicated, clean, or built from a particular
+image. The consumer separately fetches the GitHub Actions jobs result and binds
+the successful producer job, runner, runner group, labels, run, and source
+commit into its report. GitHub job metadata still does not prove runner-image
+contents or absence of sensitive data.
 
-Every agent must provide two reduced observations of the same standalone ACK:
-one captured from process stdout and one captured later from UIA terminal text.
-They carry different cryptorandom event IDs, fixed source/provenance labels, and
-strict stdout-before-UIA ordering. Both SHA-256 values must equal the recomputed
-expected ACK, and both capture timestamps must fall inside the agent interval. Exit status must
-be zero. This is producer-attested reduced evidence, not a provider-signed API
-receipt or proof of an absolute no-write property.
+The producer pins the required policy projections and Gemini deny-all policy
+separately from observed CLI versions, canonical help-output hashes, direct
+package entrypoint hashes, and provider executable names used for the run. Each
+invocation records the actual provider argv projection and environment-variable
+names observed by the producer; the consumer requires the exact bounded values
+and rejects the former requested-policy/credential-allowlist schema.
+
+Every agent must provide one reduced observation of the standalone ACK captured
+from provider stdout. A later terminal rendering may be retained only as an
+explicit derivative of that stdout event. It is not independent UIA evidence
+and does not add a second source of truth. Both hashes must equal the recomputed
+expected ACK, the derivative must name the stdout event, timestamps must be
+ordered inside the agent interval, and exit status must be zero. This is
+producer-attested reduced evidence, not a provider-signed API receipt, an
+independent terminal observation, or proof of an absolute no-write property.
 
 The bundle deliberately retains the numeric process-tree root, provider,
 window, and session identifiers plus a bounded PID/parent/executable projection
@@ -91,7 +102,10 @@ commit. The consumer then parses the verified certificate, timestamps, SLSA
 predicate and exact archive subject digest instead of accepting an opaque
 verification blob. Verification binds the archive SHA-256, producer run ID,
 attempt, actor, source commit, current core head, ecosystem contract commit, and
-consumer run ID/attempt/actor into an attested consumer report. Missing/modified files, a wrong role-provider map,
+consumer run ID/attempt/actor into an attested consumer report. A separately
+downloaded, paginated GitHub jobs result binds the successful producer job and
+runner-group identity rather than accepting runner facts from the artifact.
+Missing/modified files, a wrong role-provider map,
 reused nonce or run ID, stale/overlapping rungs, policy drift, quota/auth
 failure, or legacy v3 evidence fails closed. Closing or editing issue #5 cannot
 cause this gate to pass.
