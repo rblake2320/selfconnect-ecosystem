@@ -17,10 +17,18 @@ python scripts/merge_message_gate.py merge-pr `
 ```
 
 The body and evidence inputs must be retained in the PR or a durable workflow
-artifact. The helper refuses draft/closed PRs, scans every PR commit page,
-binds the reviewed body and evidence digests to the exact PR head, supplies
-explicit `gh pr merge --subject/--body-file` values, and uses
-`--match-head-commit` without `--admin` or automatic merge.
+artifact. Evidence is strict JSON using schema
+`selfconnect.reviewed_merge_evidence.v1`; it binds the exact head to a named,
+successful GitHub Actions pull-request run URL. The merge helper fetches that
+run and checks repository, head, workflow, event, status, and conclusion before
+merging. Empty or descriptive-only evidence is rejected.
+
+The helper refuses draft/closed PRs, scans every PR commit page, binds the
+reviewed body and evidence digests to the exact PR head, supplies explicit
+`gh pr merge --subject/--body-file` values, and uses `--match-head-commit`
+without `--admin` or automatic merge. Final merge text cannot carry test-count,
+green-suite, approval, zero-failure, or unsupported capability assertions;
+those belong in the retained evidence artifact, not permanent commit prose.
 
 On a pull request, `merge-message-gate` scans `base..head`. On a push to main,
 it checks every first-parent commit after the pinned adoption baseline for the

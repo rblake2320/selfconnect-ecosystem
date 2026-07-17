@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import pathlib
 import re
 import subprocess
@@ -21,6 +22,8 @@ from release_claim_scan import find_claims
 TRAILER_CONTENT = "SelfConnect-Reviewed-Content-SHA256"
 TRAILER_EVIDENCE = "SelfConnect-Reviewed-Evidence-SHA256"
 TRAILER_HEAD = "SelfConnect-Reviewed-Head-SHA"
+EVIDENCE_SCHEMA = "selfconnect.reviewed_merge_evidence.v1"
+MAX_EVIDENCE_BYTES = 1024 * 1024
 RESERVED_TRAILER_RE = re.compile(
     r"(?mi)^SelfConnect-Reviewed-(?:Content-SHA256|Evidence-SHA256|Head-SHA):"
 )
@@ -29,8 +32,12 @@ EVIDENCE_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\b\d+\s*/\s*\d+\s+(?:tests?|checks?|passed|green)\b", "numeric test/check result"),
     (r"\b\d+\s+(?:tests?|checks?)\s+(?:pass(?:ed)?|green)\b", "numeric test/check result"),
     (r"\b(?:all|full)\s+(?:tests?|suite|checks?)\s+(?:pass(?:ed)?|green)\b", "unbounded green-suite claim"),
-    (r"\b(?:approved|mergeable|fully verified)\b", "review/readiness verdict"),
-    (r"\b(?:no|zero)\s+(?:failures?|defects?|issues?)\b", "zero-defect/failure claim"),
+    (r"\b(?:fully verified|approved and mergeable)\b", "review/readiness verdict"),
+    (r"\b(?:approved|mergeable)\s+(?:for|to)\s+(?:merge|release|deploy(?:ment)?)\b", "review/readiness verdict"),
+    (r"\b(?:no|zero|0)\s+(?:known\s+)?(?:test\s+)?fail(?:ure|ures|ing)\b", "zero-failure claim"),
+    (r"\b(?:everything|CI|build)\s+(?:is\s+)?(?:green|passing)\b", "unbounded green result"),
+    (r"\bcoverage\s*(?:is\s*)?100%", "unbounded coverage result"),
+    (r"\b(?:LGTM|ship it)\b", "review/readiness verdict"),
 )
 
 TRAILER_RE = re.compile(
@@ -57,6 +64,44 @@ def evidence_hits(text: str) -> list[str]:
         if re.search(pattern, text, re.IGNORECASE):
             hits.append(label)
     return sorted(set(hits))
+
+
+def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise GateError(f"duplicate evidence JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def validate_evidence(evidence: bytes, head_sha: str) -> dict[str, object]:
+    if not evidence or len(evidence) > MAX_EVIDENCE_BYTES:
+        raise GateError("evidence must be non-empty and within the size limit")
+    try:
+        value = json.loads(
+            evidence.decode("utf-8", errors="strict"),
+            object_pairs_hook=reject_duplicate_keys,
+            parse_constant=lambda item: (_ for _ in ()).throw(GateError(f"non-finite evidence value: {item}")),
+        )
+    except (UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        raise GateError("evidence must be strict UTF-8 JSON") from exc
+    if not isinstance(value, dict) or set(value) != {
+        "schema", "head_sha", "source_url", "workflow", "conclusion",
+    }:
+        raise GateError("evidence JSON shape is invalid")
+    if value.get("schema") != EVIDENCE_SCHEMA or value.get("head_sha") != head_sha:
+        raise GateError("evidence is not bound to the reviewed head")
+    if value.get("conclusion") != "success":
+        raise GateError("evidence conclusion must be success")
+    if not isinstance(value.get("workflow"), str) or not re.fullmatch(r"[A-Za-z0-9_. -]{1,128}", value["workflow"]):
+        raise GateError("evidence workflow is invalid")
+    if not isinstance(value.get("source_url"), str) or not re.fullmatch(
+        r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/actions/runs/[1-9][0-9]*",
+        value["source_url"],
+    ):
+        raise GateError("evidence source URL is invalid")
+    return value
 
 
 def run_git(*args: str) -> str:
@@ -96,9 +141,10 @@ def compose_message(subject: str, body: str, evidence: bytes, head_sha: str) -> 
         raise GateError("head SHA must be 40 lowercase hexadecimal characters")
     if RESERVED_TRAILER_RE.search(f"{subject}\n{body}"):
         raise GateError("reviewed subject/body contains a reserved trailer name")
-    claims = [hit["label"] for hit in find_claims(f"{subject}\n{body}")]
-    if claims:
-        raise GateError("reviewed message contains prohibited capability claims: " + ", ".join(sorted(set(claims))))
+    hits = evidence_hits(f"{subject}\n{body}")
+    if hits:
+        raise GateError("reviewed message contains evidence/capability claims: " + ", ".join(hits))
+    validate_evidence(evidence, head_sha)
     content = reviewed_content(subject, body)
     return (
         f"{content}\n\n"
@@ -128,8 +174,6 @@ def run_gh(*args: str) -> str:
 
 
 def fetch_pr(repo: str, pr: int) -> dict:
-    import json
-
     try:
         value = json.loads(run_gh("api", f"repos/{repo}/pulls/{pr}"))
     except (ValueError, TypeError) as exc:
@@ -140,8 +184,6 @@ def fetch_pr(repo: str, pr: int) -> dict:
 
 
 def fetch_pr_commit_messages(repo: str, pr: int) -> list[tuple[str, str]]:
-    import json
-
     try:
         pages = json.loads(run_gh(
             "api", "--paginate", "--slurp", f"repos/{repo}/pulls/{pr}/commits?per_page=100",
@@ -163,10 +205,32 @@ def fetch_pr_commit_messages(repo: str, pr: int) -> list[tuple[str, str]]:
     return commits
 
 
+def verify_evidence_source(repo: str, evidence: dict[str, object]) -> None:
+    match = re.fullmatch(
+        r"https://github\.com/([^/]+)/([^/]+)/actions/runs/([1-9][0-9]*)",
+        str(evidence["source_url"]),
+    )
+    if not match or f"{match.group(1)}/{match.group(2)}".lower() != repo.lower():
+        raise GateError("evidence source must belong to the pull-request repository")
+    try:
+        run = json.loads(run_gh("api", f"repos/{repo}/actions/runs/{match.group(3)}"))
+    except (ValueError, TypeError) as exc:
+        raise GateError("GitHub returned malformed evidence-run metadata") from exc
+    if (
+        not isinstance(run, dict)
+        or run.get("head_sha") != evidence["head_sha"]
+        or run.get("name") != evidence["workflow"]
+        or run.get("status") != "completed"
+        or run.get("conclusion") != "success"
+        or run.get("event") != "pull_request"
+    ):
+        raise GateError("GitHub evidence run does not match the reviewed evidence")
+
+
 def merge_pr(repo: str, pr: int, subject: str, body: str, evidence: bytes, delete_branch: bool) -> str:
     """Squash with an explicit reviewed message and immutable head match."""
     metadata = fetch_pr(repo, pr)
-    if metadata.get("state") != "open" or metadata.get("draft") is True:
+    if metadata.get("state") != "open" or metadata.get("draft") is not False:
         raise GateError("pull request must be open and non-draft")
     head_sha = metadata["head"].get("sha")
     if not isinstance(head_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", head_sha):
@@ -179,6 +243,8 @@ def merge_pr(repo: str, pr: int, subject: str, body: str, evidence: bytes, delet
     if failures:
         raise GateError("intermediate commit evidence must be removed before merge: " + "; ".join(failures))
 
+    parsed_evidence = validate_evidence(evidence, head_sha)
+    verify_evidence_source(repo, parsed_evidence)
     reviewed_body = merge_body(subject, body, evidence, head_sha)
     verify_reviewed_message(f"{canonical_text(subject)}\n\n{reviewed_body}")
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", newline="\n", suffix=".md", delete=False) as fh:
@@ -228,9 +294,9 @@ def verify_reviewed_message(message: str) -> None:
         raise GateError("reviewed head SHA is malformed")
     if sha256(content.encode("utf-8")) != trailers[TRAILER_CONTENT]:
         raise GateError("reviewed content digest mismatch")
-    claims = [hit["label"] for hit in find_claims(content)]
-    if claims:
-        raise GateError("reviewed message contains prohibited capability claims")
+    hits = evidence_hits(content)
+    if hits:
+        raise GateError("reviewed message contains evidence/capability claims")
 
 
 def scan_main(baseline: str, head: str) -> list[tuple[str, str]]:

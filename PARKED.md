@@ -10,6 +10,11 @@
   owner can still change protection or forge trailers. The post-merge scan
   makes that state visible; it does not claim to make administration
   impossible.
+- **Natural-language recall**: evidence/claim patterns cover named high-risk
+  result forms but cannot identify every possible paraphrase. The final message
+  is intentionally kept factual and result-free; retained structured evidence
+  carries the check outcome. Pattern expansion requires a reproduced bypass to
+  avoid turning ordinary engineering prose into false failures.
 
 Deliberately out of scope for the release claim scan, recorded so absence is
 not mistaken for oversight:

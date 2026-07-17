@@ -13,6 +13,11 @@
 - Pinned that baseline as a workflow literal. Reading it from the candidate
   tree would let an unmanaged commit advance the baseline to itself and evade
   the scan.
+- Independent review found three additional weaknesses: final messages did not
+  receive the intermediate-evidence scan, empty arbitrary evidence could be
+  hashed, and verdict patterns overmatched ordinary prose. The final path now
+  uses narrower result-context patterns, scans final text too, requires strict
+  head-bound evidence JSON, and verifies its GitHub Actions run live.
 
 ## 2026-07-16 (fail-closed readiness and security boundary)
 
