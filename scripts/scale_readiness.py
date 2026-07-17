@@ -24,6 +24,7 @@ CORE_BRANCH = "master"
 DEFAULT_MAX_EVIDENCE_AGE_HOURS = 168.0
 MAX_EVIDENCE_AGE_HOURS = 168.0
 MAX_FUTURE_SKEW = timedelta(minutes=5)
+MAX_JSON_BYTES = 2 * 1024 * 1024
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 RUN_ID_RE = re.compile(r"^SC_REAL5_\d{8}_\d{6}$")
 
@@ -65,6 +66,8 @@ def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 def load_json(path: Path) -> dict[str, Any]:
     try:
+        if path.stat().st_size > MAX_JSON_BYTES:
+            raise ScaleReadinessError("evidence_json_too_large")
         value = json.loads(
             path.read_text(encoding="utf-8"),
             object_pairs_hook=reject_duplicate_keys,
@@ -72,6 +75,8 @@ def load_json(path: Path) -> dict[str, Any]:
                 ValueError(f"non-finite JSON number: {value}")
             ),
         )
+    except ScaleReadinessError:
+        raise
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
         raise ScaleReadinessError("evidence_json_invalid") from exc
     if not isinstance(value, dict):
@@ -186,6 +191,12 @@ def exact_int(value: Any) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
+def exact_provider_counts(value: Any, expected: dict[str, int]) -> bool:
+    if not isinstance(value, dict) or set(value) != set(expected):
+        return False
+    return all(exact_int(value.get(name)) == count for name, count in expected.items())
+
+
 def validate_source_result(source: dict[str, Any], agent_count: int) -> dict[str, Any]:
     expected = RUNGS[agent_count]
     if source.get("schema") != SOURCE_SCHEMA:
@@ -194,14 +205,27 @@ def validate_source_result(source: dict[str, Any], agent_count: int) -> dict[str
         raise ScaleReadinessError("rung_not_passed")
     if exact_int(source.get("agent_count")) != agent_count:
         raise ScaleReadinessError("agent_count_mismatch")
-    if source.get("provider_counts") != expected["provider_counts"]:
+    if not exact_provider_counts(source.get("provider_counts"), expected["provider_counts"]):
         raise ScaleReadinessError("provider_counts_mismatch")
     if source.get("logical_simulation") is not False:
         raise ScaleReadinessError("logical_simulation_rejected")
     if source.get("visible_windows") is not True:
         raise ScaleReadinessError("visible_windows_required")
+    if source.get("uia_readback_attempted") is not True:
+        raise ScaleReadinessError("uia_readback_required")
+    if source.get("gemini_auth_type") != "gemini-api-key":
+        raise ScaleReadinessError("gemini_auth_mode_invalid")
     if source.get("completion_policy") != "visible_window_plus_exact_ack_from_uia_or_provider_log":
         raise ScaleReadinessError("completion_policy_invalid")
+    accounting = source.get("model_call_accounting")
+    if (
+        not isinstance(accounting, dict)
+        or exact_int(accounting.get("real_model_calls_total")) != agent_count
+        or type(accounting.get("real_model_calls_per_ack_task")) is not float
+        or accounting.get("real_model_calls_per_ack_task") != 1.0
+        or accounting.get("known_deterministic_task") is not False
+    ):
+        raise ScaleReadinessError("real_model_call_evidence_invalid")
     run_id = source.get("run_id")
     if not isinstance(run_id, str) or not RUN_ID_RE.fullmatch(run_id):
         raise ScaleReadinessError("run_id_invalid")
@@ -225,8 +249,9 @@ def validate_source_result(source: dict[str, Any], agent_count: int) -> dict[str
             status = "provider_quota_exceeded" if name == "provider_quota_exceeded" else "failure_counter_nonzero"
             raise ScaleReadinessError(status)
     provider_failures = counters.get("provider_failures")
-    if not isinstance(provider_failures, dict) or any(
-        exact_int(value) != 0 for value in provider_failures.values()
+    if not exact_provider_counts(
+        provider_failures,
+        {provider: 0 for provider in expected["provider_counts"]},
     ):
         raise ScaleReadinessError("provider_failure_nonzero")
 
@@ -236,23 +261,34 @@ def validate_source_result(source: dict[str, Any], agent_count: int) -> dict[str
     expected_providers = expected["provider_counts"]
     observed_providers = {provider: 0 for provider in expected_providers}
     roles: set[str] = set()
+    nonce_hashes: set[str] = set()
+    expected_hashes: set[str] = set()
     sanitized_agents: list[dict[str, Any]] = []
     for agent in agents:
         if not isinstance(agent, dict):
             raise ScaleReadinessError("agent_evidence_invalid")
         provider = agent.get("provider")
         role = agent.get("role")
-        if provider not in observed_providers:
+        if not isinstance(provider, str) or provider not in observed_providers:
             raise ScaleReadinessError("agent_provider_invalid")
         if not isinstance(role, str) or not role or role in roles:
             raise ScaleReadinessError("agent_role_invalid")
+        if (
+            exact_int(agent.get("hwnd")) is None
+            or int(agent["hwnd"]) <= 0
+            or exact_int(agent.get("pid")) is None
+            or int(agent["pid"]) <= 0
+            or not isinstance(agent.get("title"), str)
+            or not agent["title"]
+        ):
+            raise ScaleReadinessError("visible_agent_identity_invalid")
         roles.add(role)
         observed_providers[provider] += 1
         log_ack = agent.get("log_exact_ack") is True
         uia_ack = agent.get("uia_exact_ack") is True
         if not (log_ack or uia_ack):
             raise ScaleReadinessError("exact_ack_missing")
-        if agent.get("status") != "pass" or agent.get("diagnosis") not in ("", None):
+        if agent.get("status") != "pass" or agent.get("diagnosis") != "":
             raise ScaleReadinessError("agent_not_passed")
         nonce_hash = agent.get("nonce_hash")
         expected_hash = agent.get("expected_hash")
@@ -260,15 +296,28 @@ def validate_source_result(source: dict[str, Any], agent_count: int) -> dict[str
             raise ScaleReadinessError("agent_hash_invalid")
         if not isinstance(expected_hash, str) or not SHA256_RE.fullmatch(expected_hash.lower()):
             raise ScaleReadinessError("agent_hash_invalid")
+        nonce_hash = nonce_hash.lower()
+        expected_hash = expected_hash.lower()
+        if nonce_hash in nonce_hashes or expected_hash in expected_hashes:
+            raise ScaleReadinessError("agent_hash_reused")
+        nonce_hashes.add(nonce_hash)
+        expected_hashes.add(expected_hash)
+        expected_ack_source = (
+            "uia+log" if uia_ack and log_ack else "uia" if uia_ack else "log"
+        )
+        if agent.get("ack_source") != expected_ack_source:
+            raise ScaleReadinessError("ack_source_invalid")
         sanitized_agents.append(
             {
                 "provider": provider,
                 "role": role,
-                "nonce_hash": nonce_hash.lower(),
-                "expected_hash": expected_hash.lower(),
+                "nonce_hash": nonce_hash,
+                "expected_hash": expected_hash,
                 "log_exact_ack": log_ack,
                 "uia_exact_ack": uia_ack,
+                "ack_source": expected_ack_source,
                 "status": "pass",
+                "diagnosis": "",
             }
         )
     if observed_providers != expected_providers:
@@ -280,15 +329,22 @@ def validate_source_result(source: dict[str, Any], agent_count: int) -> dict[str
         "verdict": "PASS",
         "agent_count": agent_count,
         "provider_counts": expected_providers,
+        "gemini_auth_type": "gemini-api-key",
         "logical_simulation": False,
         "visible_windows": True,
+        "uia_readback_attempted": True,
         "completion_policy": source["completion_policy"],
+        "model_call_accounting": {
+            "real_model_calls_total": agent_count,
+            "real_model_calls_per_ack_task": 1.0,
+            "known_deterministic_task": False,
+        },
         "failure_counters": {name: 0 for name in zero_counters},
         "agents": sanitized_agents,
     }
 
 
-def validate_rung_evidence(evidence: dict[str, Any], agent_count: int) -> None:
+def validate_rung_evidence(evidence: dict[str, Any], agent_count: int) -> str:
     # The sanitized artifact is intentionally accepted through the same strict
     # proposition checks as raw runner output.
     if evidence.get("schema") != RUNG_SCHEMA:
@@ -296,8 +352,23 @@ def validate_rung_evidence(evidence: dict[str, Any], agent_count: int) -> None:
     counters = evidence.get("failure_counters")
     if not isinstance(counters, dict):
         raise ScaleReadinessError("failure_counters_invalid")
+    agents = evidence.get("agents")
+    if not isinstance(agents, list) or any(not isinstance(agent, dict) for agent in agents):
+        raise ScaleReadinessError("agent_evidence_invalid")
     source = dict(evidence)
     source["schema"] = SOURCE_SCHEMA
+    source["agents"] = [
+        {
+            **agent,
+            # The reduced artifact deliberately omits live machine identifiers.
+            # Positive sentinels allow reuse of proposition validation without
+            # representing them as retained evidence.
+            "hwnd": 1,
+            "pid": 1,
+            "title": "redacted-after-validation",
+        }
+        for agent in agents
+    ]
     source["failure_counters"] = {
         **counters,
         "provider_failures": {
@@ -305,6 +376,7 @@ def validate_rung_evidence(evidence: dict[str, Any], agent_count: int) -> None:
         },
     }
     validate_source_result(source, agent_count)
+    return str(evidence["run_id"])
 
 
 def validate_bundle(
@@ -321,8 +393,18 @@ def validate_bundle(
     ):
         raise ScaleReadinessError("evidence_age_policy_invalid")
     manifest_path = bundle / "manifest.json"
-    if not manifest_path.is_file():
+    if not manifest_path.is_file() or manifest_path.is_symlink():
         raise ScaleReadinessError("manifest_missing")
+    try:
+        actual_files = {item.name for item in bundle.iterdir() if item.is_file()}
+        actual_entries = {item.name for item in bundle.iterdir()}
+    except OSError as exc:
+        raise ScaleReadinessError("evidence_io_failed") from exc
+    expected_files = {"manifest.json", *(f"rung-{count}.json" for count in RUNGS)}
+    if expected_files - actual_entries:
+        raise ScaleReadinessError("rung_file_missing")
+    if actual_files != expected_files or actual_entries != expected_files:
+        raise ScaleReadinessError("bundle_contents_invalid")
     manifest = load_json(manifest_path)
     if manifest.get("schema") != SCHEMA:
         raise ScaleReadinessError("manifest_schema_invalid")
@@ -345,6 +427,7 @@ def validate_bundle(
         raise ScaleReadinessError("rung_manifest_invalid")
 
     observed: set[int] = set()
+    run_ids: set[str] = set()
     for row in rungs:
         if not isinstance(row, dict):
             raise ScaleReadinessError("rung_manifest_invalid")
@@ -362,9 +445,14 @@ def validate_bundle(
         size = path.stat().st_size
         if row.get("sha256") != digest or exact_int(row.get("size_bytes")) != size:
             raise ScaleReadinessError("rung_artifact_mismatch")
-        if row.get("provider_counts") != RUNGS[agent_count]["provider_counts"]:
+        if not exact_provider_counts(
+            row.get("provider_counts"), RUNGS[agent_count]["provider_counts"]
+        ):
             raise ScaleReadinessError("rung_manifest_invalid")
-        validate_rung_evidence(load_json(path), agent_count)
+        run_id = validate_rung_evidence(load_json(path), agent_count)
+        if run_id in run_ids:
+            raise ScaleReadinessError("run_id_reused")
+        run_ids.add(run_id)
     if observed != set(RUNGS):
         raise ScaleReadinessError("rung_manifest_invalid")
 
@@ -379,7 +467,12 @@ def validate_bundle(
     }
 
 
-def collect_bundle(core_repo: Path, output_dir: Path) -> dict[str, Any]:
+def collect_bundle(
+    core_repo: Path,
+    output_dir: Path,
+    *,
+    max_evidence_age_hours: float = DEFAULT_MAX_EVIDENCE_AGE_HOURS,
+) -> dict[str, Any]:
     identity = current_core_identity(core_repo)
     runner = core_repo / "experiments" / "fabric_v2" / "real_agent_baseline.py"
     if not runner.is_file():
@@ -443,7 +536,11 @@ def collect_bundle(core_repo: Path, output_dir: Path) -> dict[str, Any]:
         }
         write_json(staged / "manifest.json", manifest)
         staged.replace(output_dir)
-    return validate_bundle(output_dir, core_repo=core_repo)
+    return validate_bundle(
+        output_dir,
+        core_repo=core_repo,
+        max_evidence_age_hours=max_evidence_age_hours,
+    )
 
 
 def write_report(path: Path | None, report: dict[str, Any]) -> None:
@@ -467,7 +564,11 @@ def main() -> int:
 
     try:
         if args.mode == "collect":
-            report = collect_bundle(args.core_repo.resolve(), args.bundle.resolve())
+            report = collect_bundle(
+                args.core_repo.resolve(),
+                args.bundle.resolve(),
+                max_evidence_age_hours=args.max_evidence_age_hours,
+            )
         else:
             report = validate_bundle(
                 args.bundle.resolve(),
@@ -476,6 +577,11 @@ def main() -> int:
             )
     except ScaleReadinessError as exc:
         report = {"schema": SCHEMA, "ok": False, "status": exc.status}
+        write_report(args.report_file, report)
+        print(json.dumps(report, indent=2))
+        return 2
+    except (OSError, UnicodeError):
+        report = {"schema": SCHEMA, "ok": False, "status": "evidence_io_failed"}
         write_report(args.report_file, report)
         print(json.dumps(report, indent=2))
         return 2

@@ -59,12 +59,20 @@ state or a synthetic fixture:
 - 15 agents split 5 Codex, 5 Claude, and 5 Gemini; and
 - 20 agents split 7 Codex, 7 Claude, and 6 Gemini.
 
+The scale workflow also requires paid/provider-approved Gemini API capacity
+available to the protected runner. `READINESS_GEMINI_API_KEY` may be supplied
+as a protected `live-readiness` environment secret; an intentionally
+provisioned User/Machine key used by the core runner is the alternative. No
+credential value is written to the evidence bundle or workflow summary.
+
 `scripts/scale_readiness.py` requires every agent to have a standalone exact
 ACK from UIA or its provider log. A failed rung, provider quota/auth failure,
 missing visible window, simulation result, incorrect count, duplicate role,
 missing exact ACK, or provider-count substitution fails the gate. The
 collector emits only a reduced non-secret evidence record; raw provider logs,
 window titles, handles, process IDs, and local paths are not uploaded.
+The bundle is closed-set: extra files are rejected, preventing raw provider
+logs from being swept into the evidence artifact accidentally.
 
 Every reduced rung is hashed into a manifest bound to the clean canonical
 `selfconnect/master` SHA returned by a live remote query. Verification rejects

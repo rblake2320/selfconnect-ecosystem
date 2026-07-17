@@ -102,3 +102,10 @@ result schema. Evidence is current-head bound, content hashed, time bounded,
 and reduced before upload. Hosted CI tests the validator contract but cannot
 claim the live agents ran. This separation keeps ordinary pull requests fast
 without allowing a green base-readiness check to imply scale proof.
+
+The evidence bundle is a closed, reduced projection rather than a copy of raw
+provider output. That preserves the exact proposition needed for review while
+excluding paths, process/window identifiers, and provider logs that could
+contain unrelated machine context. Per-file hashes detect changes after
+collection; exact source/result schemas and cross-rung uniqueness checks stop
+shape-compatible substituted results from passing.

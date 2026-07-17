@@ -35,10 +35,14 @@ def source_result(agent_count: int) -> dict:
                 {
                     "provider": provider,
                     "role": f"agent-{index:02d}",
+                    "hwnd": 1000 + index,
+                    "pid": 2000 + index,
+                    "title": f"scale-test-agent-{index:02d}",
                     "nonce_hash": f"{index + 1:064x}",
                     "expected_hash": f"{index + 101:064x}",
                     "log_exact_ack": True,
                     "uia_exact_ack": False,
+                    "ack_source": "log",
                     "status": "pass",
                     "diagnosis": "",
                 }
@@ -46,13 +50,20 @@ def source_result(agent_count: int) -> dict:
             index += 1
     return {
         "schema": scale.SOURCE_SCHEMA,
-        "run_id": "SC_REAL5_20260717_120000",
+        "run_id": f"SC_REAL5_20260717_12{agent_count:02d}00",
         "verdict": "PASS",
         "agent_count": agent_count,
         "provider_counts": providers,
+        "gemini_auth_type": "gemini-api-key",
         "logical_simulation": False,
         "visible_windows": True,
+        "uia_readback_attempted": True,
         "completion_policy": "visible_window_plus_exact_ack_from_uia_or_provider_log",
+        "model_call_accounting": {
+            "real_model_calls_total": agent_count,
+            "real_model_calls_per_ack_task": 1.0,
+            "known_deterministic_task": False,
+        },
         "failure_counters": {
             "missed_acks": 0,
             "visible_window_missing": 0,
@@ -177,12 +188,68 @@ class ScaleReadinessTests(unittest.TestCase):
             lambda: scale.validate_source_result(result, 15),
         )
 
+    def test_boolean_provider_count_does_not_equal_integer(self) -> None:
+        result = source_result(10)
+        result["provider_counts"] = {"gemini": True}
+        self.assert_status(
+            "provider_counts_mismatch",
+            lambda: scale.validate_source_result(result, 10),
+        )
+
+    def test_unhashable_provider_fails_cleanly(self) -> None:
+        result = source_result(10)
+        result["agents"][0]["provider"] = ["gemini"]
+        self.assert_status(
+            "agent_provider_invalid",
+            lambda: scale.validate_source_result(result, 10),
+        )
+
+    def test_non_api_key_gemini_mode_fails(self) -> None:
+        result = source_result(10)
+        result["gemini_auth_type"] = "oauth-personal"
+        self.assert_status(
+            "gemini_auth_mode_invalid",
+            lambda: scale.validate_source_result(result, 10),
+        )
+
+    def test_model_call_count_must_equal_agent_count(self) -> None:
+        result = source_result(15)
+        result["model_call_accounting"]["real_model_calls_total"] = 14
+        self.assert_status(
+            "real_model_call_evidence_invalid",
+            lambda: scale.validate_source_result(result, 15),
+        )
+
+    def test_visible_agent_identity_is_required_before_reduction(self) -> None:
+        result = source_result(20)
+        result["agents"][0]["hwnd"] = None
+        self.assert_status(
+            "visible_agent_identity_invalid",
+            lambda: scale.validate_source_result(result, 20),
+        )
+
     def test_missing_exact_ack_fails(self) -> None:
         result = source_result(20)
         result["agents"][0]["log_exact_ack"] = False
         self.assert_status(
             "exact_ack_missing",
             lambda: scale.validate_source_result(result, 20),
+        )
+
+    def test_ack_source_must_match_ack_booleans(self) -> None:
+        result = source_result(10)
+        result["agents"][0]["ack_source"] = "uia"
+        self.assert_status(
+            "ack_source_invalid",
+            lambda: scale.validate_source_result(result, 10),
+        )
+
+    def test_agent_hashes_must_be_unique(self) -> None:
+        result = source_result(10)
+        result["agents"][1]["nonce_hash"] = result["agents"][0]["nonce_hash"]
+        self.assert_status(
+            "agent_hash_reused",
+            lambda: scale.validate_source_result(result, 10),
         )
 
     def test_duplicate_json_keys_fail(self) -> None:
@@ -207,6 +274,33 @@ class ScaleReadinessTests(unittest.TestCase):
             lambda: scale.validate_rung_evidence(evidence, 10),
         )
 
+    def test_oversized_json_fails_before_parse(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "large.json"
+            path.write_bytes(b" " * (scale.MAX_JSON_BYTES + 1))
+            self.assert_status("evidence_json_too_large", lambda: scale.load_json(path))
+
+    def test_unexpected_bundle_file_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            bundle = Path(temp)
+            build_bundle(bundle)
+            (bundle / "raw-provider.log").write_text("not uploaded", encoding="utf-8")
+            with patch.object(scale, "current_core_identity", return_value=IDENTITY):
+                self.assert_status(
+                    "bundle_contents_invalid",
+                    lambda: scale.validate_bundle(bundle, core_repo=Path("core"), now=NOW),
+                )
+
+    def test_future_evidence_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            bundle = Path(temp)
+            build_bundle(bundle, generated_at=NOW + timedelta(minutes=6))
+            with patch.object(scale, "current_core_identity", return_value=IDENTITY):
+                self.assert_status(
+                    "evidence_from_future",
+                    lambda: scale.validate_bundle(bundle, core_repo=Path("core"), now=NOW),
+                )
+
     def test_manifest_count_cannot_hide_extra_or_duplicate_rung(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             bundle = Path(temp)
@@ -217,6 +311,24 @@ class ScaleReadinessTests(unittest.TestCase):
             with patch.object(scale, "current_core_identity", return_value=IDENTITY):
                 self.assert_status(
                     "rung_manifest_invalid",
+                    lambda: scale.validate_bundle(bundle, core_repo=Path("core"), now=NOW),
+                )
+
+    def test_rungs_cannot_reuse_one_run_id(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            bundle = Path(temp)
+            build_bundle(bundle)
+            evidence = scale.load_json(bundle / "rung-15.json")
+            evidence["run_id"] = "SC_REAL5_20260717_121000"
+            scale.write_json(bundle / "rung-15.json", evidence)
+            manifest = scale.load_json(bundle / "manifest.json")
+            row = next(row for row in manifest["rungs"] if row["agent_count"] == 15)
+            row["sha256"] = scale.sha256_file(bundle / "rung-15.json")
+            row["size_bytes"] = (bundle / "rung-15.json").stat().st_size
+            scale.write_json(bundle / "manifest.json", manifest)
+            with patch.object(scale, "current_core_identity", return_value=IDENTITY):
+                self.assert_status(
+                    "run_id_reused",
                     lambda: scale.validate_bundle(bundle, core_repo=Path("core"), now=NOW),
                 )
 

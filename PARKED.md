@@ -17,6 +17,10 @@ not mistaken for oversight:
   Issue #5 remains open until the workflow executes all three real rungs,
   uploads a current-head-bound evidence bundle, and passes without quota or
   authentication failures. Unit fixtures and issue state cannot close it.
+  The workflow must not be made a hosted required check: hosted runners cannot
+  access the protected Windows UI session or establish real visible-agent
+  execution, and running the paid scale ladder on every pull request would
+  conflate contract testing with live evidence.
 - **Current signed MSI evidence**: the available June 21, 2026 workflow run is
   stale relative to current enterprise `master`, and its evidence records
   `signed: false`. Secret-name presence cannot close this. Issue #4 remains the

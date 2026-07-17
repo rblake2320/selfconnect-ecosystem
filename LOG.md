@@ -186,3 +186,10 @@
   exact ACKs, duplicate JSON keys, and duplicate rungs. Hosted CI validates
   this contract; only the protected self-hosted workflow can create live
   scale evidence.
+- Pre-independent-review hardening rejects Boolean-as-integer provider counts,
+  malformed provider types, reused nonce/expected hashes, ACK-source
+  contradictions, duplicate run IDs, oversized JSON, unexpected bundle files,
+  future timestamps, wrong rung schemas, and malformed counter objects. The
+  final local checkpoint is 75/75 repository unit tests and 26/26 focused
+  scale-evidence tests; Ruff on changed files, Python compilation, npm
+  readiness scripts, and diff checks pass.
