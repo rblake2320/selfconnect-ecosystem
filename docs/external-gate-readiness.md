@@ -98,6 +98,15 @@ and credential values. The guard assertion is integrity-bound by the GitHub-
 attested archive but is not represented as an independently signed guard
 receipt. Exact schemas reject extra fields and files.
 
+The checked-in producer compatibility fixture has a narrower boundary than the
+live attested artifact path. Under a trusted checkout, its supplied root and
+direct entries are preflighted to reject direct symlinks, a direct junction
+root, reparse-point entries, and hardlinks. The helper does not prove ancestor
+path containment and does not hold no-follow handles across subsequent reads;
+ancestor reparse indirection and lstat-to-open replacement are explicit
+residuals. Fixture hash agreement establishes internal test consistency only,
+not producer authenticity or live evidence.
+
 Before parsing, the ecosystem workflow verifies GitHub artifact provenance
 against the exact core signer workflow, `master` source ref, and producer run
 commit. The consumer then parses the verified certificate, timestamps, SLSA

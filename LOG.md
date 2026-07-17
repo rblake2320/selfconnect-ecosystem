@@ -299,15 +299,21 @@
 - Added a direct regression where `vector.json` is replaced by a symlink to an
   identical external file; validation now fails with
   `contract_fixture_invalid` before reading the JSON.
-- This closes a local path-integrity gap only. Hash agreement inside a fixture
-  remains internal consistency, not producer authenticity or live evidence.
+- This closes the reproduced direct-entry path case only. Hash agreement inside
+  a fixture remains internal consistency, not producer authenticity or live
+  evidence.
 
-## 2026-07-17 R6 closed fixture paths
+## 2026-07-17 R6 direct fixture-entry preflight
 
-- Centralized fixture-path checks around no-follow metadata. The root must be a
-  real non-reparse directory; every entry must be a bounded regular file with
-  link count exactly one.
-- Rejects symbolic links, Windows directory junctions, any Windows reparse-point
-  attribute, and hardlinked files before parsing or hashing.
+- Centralized direct fixture-path checks around no-follow metadata. The supplied
+  root is rejected when it is itself a reparse point; every direct entry must be
+  a bounded regular file with link count exactly one.
+- Rejects direct symbolic links, a direct Windows directory-junction root,
+  direct reparse-point entries, and hardlinked files before parsing or hashing.
 - Added direct Windows tests using `mklink /J` and `os.link` against identical
   external fixture bytes. Both alias paths fail with `contract_fixture_invalid`.
+- Boundary correction: this helper assumes a trusted checkout. It does not
+  inspect/hold every ancestor component and does not keep no-follow handles from
+  lstat through open, parse, and hash. Ancestor reparse indirection and a
+  concurrent lstat-to-open swap remain explicit residuals. No authenticity or
+  live-evidence claim attaches to this preflight.

@@ -243,8 +243,8 @@ def write_json(path: Path, value: dict[str, Any]) -> None:
     )
 
 
-def closed_path_metadata(path: Path, *, directory: bool) -> os.stat_result:
-    """Return no-follow metadata only for a closed, unaliased fixture path."""
+def preflight_direct_fixture_path(path: Path, *, directory: bool) -> os.stat_result:
+    """Reject direct fixture-entry aliases under an otherwise trusted checkout."""
     try:
         metadata = path.stat(follow_symlinks=False)
         is_junction = getattr(path, "is_junction", lambda: False)()
@@ -270,19 +270,24 @@ def closed_path_metadata(path: Path, *, directory: bool) -> os.stat_result:
 
 
 def validate_contract_fixture(root: Path) -> dict[str, Any]:
-    """Validate producer-generated compatibility bytes before contract tests use them."""
+    """Check internal fixture consistency under a trusted-checkout assumption.
+
+    Direct entries are preflighted, but ancestor reparse points and a path swap
+    between metadata inspection and later reads are outside this test helper's
+    boundary. This function does not establish producer authenticity.
+    """
     expected_bundle_files = {
         "manifest.json",
         *(f"rung-{count}.json" for count in RUNGS),
     }
     expected_entries = expected_bundle_files | {"vector.json"}
     try:
-        closed_path_metadata(root, directory=True)
+        preflight_direct_fixture_path(root, directory=True)
         entries = {path.name for path in root.iterdir()}
         if entries != expected_entries:
             raise ScaleReadinessError("contract_fixture_invalid")
         for name in expected_entries:
-            closed_path_metadata(root / name, directory=False)
+            preflight_direct_fixture_path(root / name, directory=False)
     except ScaleReadinessError:
         raise
     except (OSError, UnicodeError) as exc:

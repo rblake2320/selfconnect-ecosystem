@@ -359,7 +359,7 @@ class ScaleReadinessTests(unittest.TestCase):
                 lambda: scale.validate_contract_fixture(root),
             )
 
-    def test_external_identical_vector_symlink_fails_before_json_parse(self) -> None:
+    def test_direct_vector_symlink_fails_before_json_parse(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             parent = Path(temp)
             root = parent / "bundle"
@@ -381,7 +381,7 @@ class ScaleReadinessTests(unittest.TestCase):
             )
 
     @unittest.skipUnless(os.name == "nt", "Windows junction semantics required")
-    def test_external_fixture_junction_root_fails_before_iteration(self) -> None:
+    def test_direct_fixture_root_junction_fails_before_iteration(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             parent = Path(temp)
             external = parent / "external-bundle"
@@ -404,7 +404,7 @@ class ScaleReadinessTests(unittest.TestCase):
                 lambda: scale.validate_contract_fixture(root),
             )
 
-    def test_external_identical_vector_hardlink_fails_before_json_parse(self) -> None:
+    def test_direct_vector_hardlink_fails_before_json_parse(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             parent = Path(temp)
             root = parent / "bundle"

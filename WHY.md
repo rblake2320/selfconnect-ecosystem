@@ -165,11 +165,14 @@ Producer source hashing decodes strict UTF-8 and canonicalizes CRLF/CR to LF so
 the cross-repository identity is stable across supported checkout newline
 conventions without accepting invalid source bytes.
 
-The fixture validator preflights the exact directory entries before parsing:
-the root must be a real directory, and every manifest, rung, and vector must be
-a bounded, singly linked regular file. Symlinks, Windows junctions, any Windows
-reparse point, and hardlinks are rejected. This prevents an otherwise identical
-external `vector.json` or directory from satisfying a closed-fixture check
-through path redirection or inode aliasing. The vector still establishes
-only internal compatibility-fixture consistency. It is not a signature and
-does not authenticate the producer or replace the attested live artifact path.
+The fixture validator preflights its direct directory entries before parsing:
+the supplied root must not itself be a reparse point, and every manifest, rung,
+and vector must be a bounded, singly linked regular file. Direct symlinks,
+Windows junction roots, reparse-point entries, and hardlinks are rejected. This
+is a test-helper control under a trusted-checkout assumption, not a general path
+containment boundary. It does not walk and hold every ancestor directory, and
+it does not keep no-follow handles open across later parsing/hashing; an
+ancestor reparse point and an lstat-to-open swap are explicit residuals. The
+vector establishes only internal compatibility-fixture consistency. It is not
+a signature and does not authenticate the producer or replace the attested
+live artifact path.
