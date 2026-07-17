@@ -49,6 +49,30 @@ The live workflow invokes the default fail-closed command. Missing runner,
 token, repository, permission, provider response, platform capability, or
 artifact evidence is a failure, not `NA`.
 
+The base live gate does not establish the separate 10/15/20-agent scale
+ladder. `.github/workflows/scale-readiness.yml` is the manual **Real-Agent
+Scale Readiness Evidence** gate. It runs the real visible-agent commands on
+the same protected Windows runner instead of inferring readiness from an issue
+state or a synthetic fixture:
+
+- 10 Gemini agents;
+- 15 agents split 5 Codex, 5 Claude, and 5 Gemini; and
+- 20 agents split 7 Codex, 7 Claude, and 6 Gemini.
+
+`scripts/scale_readiness.py` requires every agent to have a standalone exact
+ACK from UIA or its provider log. A failed rung, provider quota/auth failure,
+missing visible window, simulation result, incorrect count, duplicate role,
+missing exact ACK, or provider-count substitution fails the gate. The
+collector emits only a reduced non-secret evidence record; raw provider logs,
+window titles, handles, process IDs, and local paths are not uploaded.
+
+Every reduced rung is hashed into a manifest bound to the clean canonical
+`selfconnect/master` SHA returned by a live remote query. Verification rejects
+missing or modified files, duplicate JSON keys, a different/currently stale
+core head, future evidence, and evidence older than 168 hours. The collector
+creates this manifest only after actually running all three rungs. Closing or
+editing issue #5 cannot cause this gate to pass.
+
 The enterprise TPM module is not imported or executed until the complete
 canonical repository precondition passes. A dirty, forked, wrong-branch, or
 stale local checkout therefore cannot supply executable probe code.
@@ -134,6 +158,11 @@ Open trackers:
 | Gemini 10/15/20 scale quota | https://github.com/rblake2320/selfconnect-ecosystem/issues/5 |
 | TPM platform attestation PASS artifact | https://github.com/rblake2320/selfconnect-ecosystem/issues/3 |
 | Windows MSI signing and signed artifact | https://github.com/rblake2320/selfconnect-ecosystem/issues/4 |
+
+Until a protected runner completes the scale workflow successfully, issue #5
+remains open and no 10/15/20 scale-readiness claim is established. A green
+hosted `readiness` job proves only the validator contract and adversarial tests;
+it is not live scale evidence.
 
 ## Primary References
 

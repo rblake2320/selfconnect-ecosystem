@@ -11,6 +11,12 @@ not mistaken for oversight:
   root, an independently obtained signer fingerprint, one full run, and
   retained non-secret output. Until then, no green live-readiness result
   exists.
+- **Real-agent 10/15/20 scale activation**: the fail-closed collector,
+  validator, hosted contract tests, and manual self-hosted workflow exist, but
+  no protected runner or persistent Gemini provider capacity is provisioned.
+  Issue #5 remains open until the workflow executes all three real rungs,
+  uploads a current-head-bound evidence bundle, and passes without quota or
+  authentication failures. Unit fixtures and issue state cannot close it.
 - **Current signed MSI evidence**: the available June 21, 2026 workflow run is
   stale relative to current enterprise `master`, and its evidence records
   `signed: false`. Secret-name presence cannot close this. Issue #4 remains the

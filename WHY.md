@@ -87,3 +87,18 @@ NIST SP 800-204C covers DevSecOps for microservices and service meshes; it does
 not define the IBCT/AIP terms previously attributed to it. Preserving a dated
 correction is more defensible than substituting a different unsupported
 mapping.
+
+## Scale readiness is evidence, not issue state (2026-07-17)
+
+The base live-readiness workflow deliberately tests bounded platform and
+artifact gates. Ecosystem issue #5, however, requires three costly real-agent
+runs with exact provider mixes. Listing that issue in documentation did not
+make it executable, and checking whether the issue was open or closed would
+let repository metadata substitute for runtime evidence.
+
+The scale gate is therefore separate. A protected Windows runner executes the
+real 10/15/20 ladder and a strict collector validates the runner's existing v3
+result schema. Evidence is current-head bound, content hashed, time bounded,
+and reduced before upload. Hosted CI tests the validator contract but cannot
+claim the live agents ran. This separation keeps ordinary pull requests fast
+without allowing a green base-readiness check to imply scale proof.

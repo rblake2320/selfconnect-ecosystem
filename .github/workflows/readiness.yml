@@ -26,12 +26,17 @@ jobs:
           python -m py_compile
           scripts\readiness.py
           scripts\security_reference_check.py
+          scripts\scale_readiness.py
           tests\test_readiness.py
+          tests\test_scale_readiness.py
           tests\test_security_policy.py
           tests\test_security_reference_check.py
 
       - name: Run readiness checker contract tests
         run: npm run test:readiness
+
+      - name: Run real-agent scale evidence contract tests
+        run: npm run test:scale-readiness
 
       - name: Verify security policy contract
         run: >-

@@ -167,3 +167,22 @@
   retained v0.6 statement that denied actions were never exposed to
   observers (v1.0.0 shipped unfiltered context_before, GAPS OBS-1; master
   2026-07-14 filters primary+context under named tests).
+
+## 2026-07-17
+
+- Added a separate fail-closed real-agent scale evidence gate for ecosystem
+  issue #5. The previous live-readiness checker covered repository state,
+  single-provider access, TPM, and signed MSI evidence but did not execute or
+  validate the documented 10/15/20-agent ladder.
+- `scripts/scale_readiness.py collect` now runs the three real visible-agent
+  rungs from a clean, current canonical `selfconnect/master` checkout. It
+  requires exact per-agent ACK evidence, exact provider mixes, zero provider
+  quota/auth failures, and non-simulated visible-window results.
+- Evidence is reduced before upload to exclude raw logs, local paths, HWNDs,
+  PIDs, and titles. A SHA-256 manifest binds the three rung files to the live
+  core head and a maximum 168-hour evidence age.
+- Added adversarial tests for stale and wrong-head evidence, missing or
+  modified artifacts, quota failure, forged agent/provider counts, missing
+  exact ACKs, duplicate JSON keys, and duplicate rungs. Hosted CI validates
+  this contract; only the protected self-hosted workflow can create live
+  scale evidence.
