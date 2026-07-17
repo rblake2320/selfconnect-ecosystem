@@ -48,8 +48,9 @@ discarded its read-only job credential. No `1.1.1` distribution reached PyPI.
 The workflow was corrected on protected `main`; the next release is `1.1.2`
 rather than moving or reusing the published Git tag.
 
-## Current Block
+## Current State
 
-Until the owner registers the matching PyPI Trusted Publisher and then sets the
-environment activation variable, the workflow exits before the publish action.
-This is intentional. The activation variable is currently absent.
+On 2026-07-17, the owner registered the matching PyPI Trusted Publisher and
+set `PYPI_TRUSTED_PUBLISHING_ENABLED=true` in the protected `pypi` environment.
+Publication remains release-triggered and must pass the build, test, claim,
+dependency-audit, artifact, hash, and provenance gates above.
