@@ -33,5 +33,5 @@ jobs:
         if: github.event_name == 'push'
         run: >-
           python scripts/merge_message_gate.py scan-main
-          --baseline d25b8a1372a15e2332c5b0551c28332dda5f4820
+          --baseline a64a10ee6e30482f889c2c68d29792b10c25f0b9
           --head "${{ github.sha }}"
