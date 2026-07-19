@@ -115,7 +115,7 @@ def test_workflow_baseline_is_not_candidate_controlled():
         / "workflows"
         / "merge-message-gate.yml"
     ).read_text(encoding="utf-8")
-    assert "--baseline d25b8a1372a15e2332c5b0551c28332dda5f4820" in workflow
+    assert "--baseline a64a10ee6e30482f889c2c68d29792b10c25f0b9" in workflow
     assert "--baseline-file" not in workflow
 
 
