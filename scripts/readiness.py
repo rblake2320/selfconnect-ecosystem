@@ -472,12 +472,26 @@ def check_tpm(root: Path) -> dict[str, Any]:
     if not enterprise.exists():
         return {"ok": False, "status": "missing_repo", "path": str(enterprise)}
 
+    expected_public_key = os.environ.get(
+        "READINESS_TPM_PUBLIC_KEY_SHA256", ""
+    ).strip().lower()
+    if re.fullmatch(r"[0-9a-f]{64}", expected_public_key) is None:
+        return {
+            "ok": False,
+            "status": "missing_or_invalid_public_key_pin",
+        }
+
     probe = (
         "import json; "
         "from enterprise.tpm_attestation import tpm_probe; "
         "print(json.dumps(tpm_probe(), default=str))"
     )
-    result = run_cmd([sys.executable, "-c", probe], cwd=enterprise, timeout=60)
+    result = run_cmd(
+        [sys.executable, "-c", probe],
+        cwd=enterprise,
+        timeout=60,
+        env={"SELFCONNECT_TPM_PUBLIC_KEY_SHA256": expected_public_key},
+    )
     if result.returncode != 0:
         return {
             "ok": False,
@@ -490,15 +504,53 @@ def check_tpm(root: Path) -> dict[str, Any]:
         return {"ok": False, "status": "bad_json", "error": type(exc).__name__}
     if not isinstance(data, dict):
         return {"ok": False, "status": "bad_json_shape"}
-    supported = data.get("supported") is True
+    digest_fields = (
+        "claim_sha256",
+        "nonce_sha256",
+        "pcr_values_sha256",
+        "public_key_sha256",
+    )
+    digests_valid = all(
+        isinstance(data.get(key), str)
+        and re.fullmatch(r"[0-9a-f]{64}", data[key].lower()) is not None
+        for key in digest_fields
+    )
+    verified = (
+        data.get("supported") is True
+        and data.get("verified") is True
+        and data.get("platform_key_bound") is True
+        and data.get("replay_checked") is True
+        and digests_valid
+        and data.get("public_key_sha256", "").lower() == expected_public_key
+        and isinstance(data.get("claim_size"), int)
+        and data["claim_size"] > 0
+        and isinstance(data.get("pcr_mask"), int)
+        and data["pcr_mask"] > 0
+        and isinstance(data.get("pcr_algorithm"), int)
+        and data["pcr_algorithm"] > 0
+    )
     safe_probe = {
         key: data.get(key)
-        for key in ("supported", "claim_size", "error", "provider")
+        for key in (
+            "supported",
+            "verified",
+            "platform_key_bound",
+            "identity_key_bound",
+            "manufacturer_chain_verified",
+            "replay_checked",
+            "claim_size",
+            "claim_sha256",
+            "public_key_sha256",
+            "pcr_mask",
+            "pcr_algorithm",
+            "pcr_values_sha256",
+            "error",
+        )
         if key in data
     }
     return {
-        "ok": supported,
-        "status": "ready" if supported else "unsupported_on_this_host",
+        "ok": verified,
+        "status": "ready" if verified else "attestation_verification_failed",
         "probe": safe_probe,
     }
 

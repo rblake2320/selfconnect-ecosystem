@@ -1,5 +1,13 @@
 # Parked
 
+- **TPM manufacturer/EK remote trust and agent-identity binding**: the local
+  readiness gate verifies a pinned TPM identity-key platform claim, PCR values,
+  nonce freshness, and replay state. It does not validate a manufacturer/EK
+  certificate chain, operate a remote enrollment/revocation authority, or bind
+  the separate SelfConnect agent-signing identity. Those need external key
+  custody and verifier infrastructure and remain outside this local evidence
+  closure.
+
 - **Cryptographic reviewer identity for merge trailers**: the reviewed-message
   trailers are hashes, not signatures. They detect default/unmanaged merges and
   bind retained inputs, but do not prove which person approved them. Adding a

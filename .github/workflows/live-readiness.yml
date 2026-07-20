@@ -20,6 +20,7 @@ jobs:
     environment: live-readiness
     env:
       PKA_ROOT: ${{ vars.READINESS_PKA_ROOT }}
+      READINESS_TPM_PUBLIC_KEY_SHA256: ${{ vars.READINESS_TPM_PUBLIC_KEY_SHA256 }}
       READINESS_WINDOWS_SIGNER_SHA256: ${{ vars.READINESS_WINDOWS_SIGNER_SHA256 }}
 
     steps:
@@ -49,6 +50,9 @@ jobs:
           }
           if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
             throw "Secret READINESS_GH_TOKEN is required"
+          }
+          if ($env:READINESS_TPM_PUBLIC_KEY_SHA256 -notmatch '^[0-9A-Fa-f]{64}$') {
+            throw "READINESS_TPM_PUBLIC_KEY_SHA256 must pin one TPM public-key SHA-256 digest"
           }
           if ($env:READINESS_WINDOWS_SIGNER_SHA256 -notmatch '^[0-9A-Fa-f]{64}$') {
             throw "READINESS_WINDOWS_SIGNER_SHA256 must pin one SHA-256 certificate thumbprint"

@@ -286,7 +286,10 @@ class ReadinessContractTests(unittest.TestCase):
     def test_tpm_truthy_string_does_not_pass(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             (Path(temp_dir) / "selfconnect-enterprise").mkdir()
-            with patch.object(
+            with patch.dict(
+                readiness.os.environ,
+                {"READINESS_TPM_PUBLIC_KEY_SHA256": "a" * 64},
+            ), patch.object(
                 readiness,
                 "run_cmd",
                 return_value=readiness.CmdResult(
@@ -297,7 +300,85 @@ class ReadinessContractTests(unittest.TestCase):
             ):
                 report = readiness.check_tpm(Path(temp_dir))
         self.assertFalse(report["ok"])
-        self.assertEqual(report["status"], "unsupported_on_this_host")
+        self.assertEqual(report["status"], "attestation_verification_failed")
+
+    def test_tpm_requires_independent_public_key_pin(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict(
+            readiness.os.environ,
+            {"READINESS_TPM_PUBLIC_KEY_SHA256": ""},
+        ):
+            (Path(temp_dir) / "selfconnect-enterprise").mkdir()
+            report = readiness.check_tpm(Path(temp_dir))
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["status"], "missing_or_invalid_public_key_pin")
+
+    def test_tpm_accepts_only_complete_verified_pinned_evidence(self) -> None:
+        key_digest = "a" * 64
+        evidence = {
+            "supported": True,
+            "verified": True,
+            "platform_key_bound": True,
+            "identity_key_bound": False,
+            "manufacturer_chain_verified": False,
+            "replay_checked": True,
+            "claim_size": 1187,
+            "claim_sha256": "b" * 64,
+            "nonce_sha256": "c" * 64,
+            "public_key_sha256": key_digest,
+            "pcr_mask": 0xFFFFFF,
+            "pcr_algorithm": 11,
+            "pcr_values_sha256": "d" * 64,
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            (Path(temp_dir) / "selfconnect-enterprise").mkdir()
+
+            def fake_run(*args, **kwargs):
+                self.assertEqual(
+                    kwargs["env"]["SELFCONNECT_TPM_PUBLIC_KEY_SHA256"],
+                    key_digest,
+                )
+                return readiness.CmdResult(0, json.dumps(evidence), "")
+
+            with patch.dict(
+                readiness.os.environ,
+                {"READINESS_TPM_PUBLIC_KEY_SHA256": key_digest},
+            ), patch.object(readiness, "run_cmd", side_effect=fake_run):
+                report = readiness.check_tpm(Path(temp_dir))
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["status"], "ready")
+        self.assertFalse(report["probe"]["manufacturer_chain_verified"])
+
+    def test_tpm_rejects_key_substitution_and_incomplete_evidence(self) -> None:
+        key_digest = "a" * 64
+        evidence = {
+            "supported": True,
+            "verified": True,
+            "platform_key_bound": True,
+            "replay_checked": True,
+            "claim_size": 1187,
+            "claim_sha256": "b" * 64,
+            "nonce_sha256": "c" * 64,
+            "public_key_sha256": "e" * 64,
+            "pcr_mask": 0xFFFFFF,
+            "pcr_algorithm": 11,
+            "pcr_values_sha256": "d" * 64,
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            (Path(temp_dir) / "selfconnect-enterprise").mkdir()
+            with patch.dict(
+                readiness.os.environ,
+                {"READINESS_TPM_PUBLIC_KEY_SHA256": key_digest},
+            ), patch.object(
+                readiness,
+                "run_cmd",
+                return_value=readiness.CmdResult(0, json.dumps(evidence), ""),
+            ):
+                substituted = readiness.check_tpm(Path(temp_dir))
+                evidence["public_key_sha256"] = key_digest
+                del evidence["nonce_sha256"]
+                incomplete = readiness.check_tpm(Path(temp_dir))
+        self.assertFalse(substituted["ok"])
+        self.assertFalse(incomplete["ok"])
 
     def test_authenticode_requires_valid_status_pinned_signer_and_timestamp(self) -> None:
         evidence = {
@@ -721,6 +802,7 @@ class ReadinessContractTests(unittest.TestCase):
         self.assertIn("self-hosted", workflow)
         self.assertIn("python scripts\\readiness.py --json", workflow)
         self.assertIn("READINESS_PKA_ROOT", workflow)
+        self.assertIn("READINESS_TPM_PUBLIC_KEY_SHA256", workflow)
         self.assertIn("READINESS_WINDOWS_SIGNER_SHA256", workflow)
         self.assertIn("READINESS_GH_TOKEN", workflow)
         self.assertIn("may tighten but never exceed 168", workflow)

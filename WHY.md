@@ -1,5 +1,20 @@
 # Why
 
+## TPM evidence must be accepted by an independent consumer
+
+A producer returning `supported: true` is not platform-attestation evidence.
+The ecosystem gate now requires the Enterprise verifier's complete bounded
+result and independently pins the expected TPM public-key digest. This catches
+key substitution, incomplete claims, non-boolean success values, and results
+that were not replay-checked.
+
+The accepted proposition remains local and precise: the evaluated host produced
+a verified, nonce-bound platform claim signed by the pinned non-exportable TPM
+identity key, with the selected PCR values and durable replay state checked.
+Manufacturer/EK certificate-chain trust, remote enrollment and revocation, and
+the separate agent-signing identity require different authorities and are not
+inferred from this result.
+
 ## Working commit messages are not final evidence
 
 Adversarial development deliberately records failed approaches and provisional

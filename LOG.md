@@ -1,5 +1,17 @@
 # Change Log
 
+## 2026-07-20 (TPM platform-attestation consumer acceptance)
+
+- Replaced the ecosystem TPM gate's historical `supported: true` check with
+  strict consumer verification of the signed claim, PCR evidence, verifier
+  nonce, durable replay decision, platform-key binding, and an independently
+  configured public-key SHA-256 pin.
+- Added the TPM public-key pin to the protected live-readiness runner contract
+  and adversarial tests for missing configuration, string truthiness, key
+  substitution, and incomplete evidence.
+- Kept manufacturer/EK chain trust, remote key lifecycle, and binding of the
+  separate agent-signing identity outside this bounded local mechanism claim.
+
 ## 2026-07-17
 
 - Added an executable reviewed-squash gate after BPC PR #19 and TSK PR #11
