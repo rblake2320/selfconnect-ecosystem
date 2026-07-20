@@ -150,9 +150,18 @@ SelfConnect multi-agent run.
 
 ### TPM platform attestation
 
-The enterprise TPM probe must execute on the evaluated host and return the
-strict boolean `supported: true`. Missing repositories, probe errors, malformed
-output, unsupported hardware, and string-like truthy values fail.
+The enterprise TPM probe must execute on the evaluated host with
+`READINESS_TPM_PUBLIC_KEY_SHA256` independently configured to the expected
+TPM identity-key digest. PASS requires strict booleans for `supported`,
+`verified`, `platform_key_bound`, and `replay_checked`; the returned key digest
+must match the configured pin; and the signed claim, nonce, PCR selection, and
+PCR-value digests must be present and structurally valid. Missing repositories,
+probe errors, malformed output, unsupported hardware, incomplete evidence,
+key substitution, and string-like truthy values fail.
+
+This gate proves the bounded local platform-attestation mechanism. It does not
+claim manufacturer/EK certificate-chain validation, remote enrollment or
+revocation, or binding of the separate agent-signing identity.
 
 ### Signed MSI evidence
 
@@ -193,10 +202,11 @@ missing, malformed, or expired timestamps fail.
 
 ## Current Expected Result
 
-Until the tracked external gates are closed, a real live readiness evaluation
-is expected to fail. That is the correct result. In particular, the historical
-enterprise MSI run from June 21, 2026 is not current-head evidence and its
-recorded artifact is unsigned.
+The TPM platform-attestation gate has bounded local PASS evidence in
+`docs/tpm-platform-acceptance-2026-07-20.md`. A full live readiness evaluation
+is still expected to fail until the other tracked external gates close. In
+particular, the historical enterprise MSI run from June 21, 2026 is not
+current-head evidence and its recorded artifact is unsigned.
 
 Open trackers:
 
@@ -204,7 +214,6 @@ Open trackers:
 |---|---|
 | Gemini non-interactive auth | https://github.com/rblake2320/selfconnect-ecosystem/issues/2 |
 | Gemini 10/15/20 scale quota | https://github.com/rblake2320/selfconnect-ecosystem/issues/5 |
-| TPM platform attestation PASS artifact | https://github.com/rblake2320/selfconnect-ecosystem/issues/3 |
 | Windows MSI signing and signed artifact | https://github.com/rblake2320/selfconnect-ecosystem/issues/4 |
 
 Until the restricted core producer completes and the hosted consumer accepts
