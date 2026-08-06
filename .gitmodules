@@ -52,3 +52,6 @@
 [submodule "linux"]
 	path = linux
 	url = https://github.com/rblake2320/selfconnect-linux
+[submodule "terminal"]
+	path = terminal
+	url = https://github.com/rblake2320/selfconnect-terminal
