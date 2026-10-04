@@ -4,6 +4,8 @@
 > The core Windows transport uses Win32 message delivery for the local
 > agent-to-agent hop. Other repositories add routing, policy, and evidence
 > components, each with its own tested boundary.
+>
+> **Central repository map:** [Ecosystem Registry](docs/ecosystem-registry.md) is the single navigation point for all identified SelfConnect-related repositories, including checked-out modules, catalog-only references, and legacy variants.
 
 ---
 
@@ -43,7 +45,7 @@
 
 ## Repos in This Ecosystem
 
-Note: this table reflects the historical submodule layout. For the current owner-declared product boundary and the adjacent/non-core repo list, use [Ecosystem Scope And Workspaces](docs/ecosystem-scope-and-workspaces.md) as the source of truth.
+This table lists repositories checked out as submodules. For the complete centralized catalog—including catalog-only, adjacent, and legacy repositories—see the [Ecosystem Registry](docs/ecosystem-registry.md). The [Ecosystem Scope And Workspaces](docs/ecosystem-scope-and-workspaces.md) document remains the source of truth for the owner-declared product boundary.
 
 Current status snapshot: [`docs/ecosystem-status-2026-06-21.md`](docs/ecosystem-status-2026-06-21.md)
 
@@ -51,6 +53,7 @@ Current status snapshot: [`docs/ecosystem-status-2026-06-21.md`](docs/ecosystem-
 |--------|------|-------------|
 | `harness/` | [selfconnect-frontier-harness](https://github.com/rblake2320/selfconnect-frontier-harness) | Execution kernel — model-agnostic, hot-swappable. Channel × Tier × Model are independent dials; mid-task switches produce no restart, no context loss |
 | `core/` | [selfconnect](https://github.com/rblake2320/selfconnect) | Core Win32 SDK — PostMessage + PrintWindow injection, zero API between agents |
+| `terminal/` | [selfconnect-terminal](https://github.com/rblake2320/selfconnect-terminal) | Governed terminal experience and terminal-specific mesh workflows |
 | `enterprise/` | [selfconnect-enterprise](https://github.com/rblake2320/selfconnect-enterprise) | Enterprise AI agent infrastructure — Win32-native mesh for government and regulated enterprise |
 | `federal/` | [selfconnect-federal](https://github.com/rblake2320/selfconnect-federal) | Research and integration components for restricted deployment boundaries; authorization is deployment-specific |
 | `accord/` | [selfconnect-accord](https://github.com/rblake2320/selfconnect-accord) | Evidence generation and verification components; not a legal or regulatory determination |
@@ -68,12 +71,11 @@ Current status snapshot: [`docs/ecosystem-status-2026-06-21.md`](docs/ecosystem-
 | `tsk/` | [tsk-protocol](https://github.com/rblake2320/tsk-protocol) | Tumbler-Style Rotating Segment Keys — structural key secrecy, used in federal/enterprise tiers |
 | `demo/` | [SelfConnect-Demo-kit-](https://github.com/rblake2320/SelfConnect-Demo-kit-) | Demo kit |
 
-**Also in the ecosystem (not submoduled here):**
+**Catalog-only component:**
 
 | Repo | Description |
 |------|-------------|
-| [selfconnect-terminal](https://github.com/rblake2320/selfconnect-terminal) | Terminal variant / integration layer |
-| [patent-portfolio](https://github.com/rblake2320/patent-portfolio) | 32-patent AI Army portfolio — includes SelfConnect patent filings (CONFIDENTIAL) |
+| [patent-portfolio](https://github.com/rblake2320/patent-portfolio) | Confidential patent and claim-evidence workspace. It is intentionally linked only through the [Ecosystem Registry](docs/ecosystem-registry.md). |
 
 ---
 
@@ -167,6 +169,7 @@ See `docs/` for cross-repo design documents:
 - [Security Model](docs/security-model.md)
 - [Agent Mesh Coordination](docs/agent-mesh-coordination.md)
 - [Ecosystem Scope And Workspaces](docs/ecosystem-scope-and-workspaces.md)
+- [Ecosystem Registry](docs/ecosystem-registry.md)
 - [Competitive And Patent Watch](docs/competitive-patent-watch.md)
 
 ---
@@ -181,6 +184,7 @@ or private status of each repository.
 | `selfconnect-ecosystem` | This umbrella meta-repo |
 | `selfconnect-frontier-harness` | Execution kernel |
 | `selfconnect` | Core Win32 SDK |
+| `selfconnect-terminal` | Governed terminal experience and terminal-specific mesh workflows |
 | `selfconnect-enterprise` | Enterprise governance layer |
 | `selfconnect-federal` | Restricted-environment deployment research |
 | `selfconnect-accord` | Evidence generation and verification components |
